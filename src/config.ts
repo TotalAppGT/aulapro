@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 export const PORT = parseInt(process.env.PORT || '3000', 10);
-export const NODE_ENV = process.env.NODE_ENV || 'development';
+export const NODE_ENV = process.env.NODE_ENV || (process.env.RAILWAY_ENVIRONMENT === 'production' ? 'production' : 'development');
 export const JWT_SECRET = process.env.JWT_SECRET || 'aulapro-dev-secret';
 
 export const RECURRENTE_BASE_URL = process.env.RECURRENTE_BASE_URL || 'https://app.recurrente.com/api';

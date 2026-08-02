@@ -8,6 +8,7 @@ import { calificacionRoutes } from './calificacion.routes';
 import { tareaRoutes } from './tarea.routes';
 import { asistenciaRoutes } from './asistencia.routes';
 import { anuncioRoutes } from './anuncio.routes';
+import { materiaRoutes } from './materia.routes';
 import { webhookRoutes } from './webhooks/recurrente';
 
 export const router = Router();
@@ -25,4 +26,5 @@ router.use('/:colegioId/calificaciones', calificacionRoutes);
 router.use('/:colegioId/tareas', tareaRoutes);
 router.use('/:colegioId/asistencias', asistenciaRoutes);
 router.use('/:colegioId/anuncios', anuncioRoutes);
+router.use('/:colegioId/materias', materiaRoutes);
 router.use('/webhooks', webhookRoutes);

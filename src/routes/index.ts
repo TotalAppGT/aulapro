@@ -16,7 +16,7 @@ router.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
 
-router.use(authRoutes);
+router.use('/auth', authRoutes);
 router.use(colegioRoutes);
 router.use('/:colegioId/alumnos', alumnoRoutes);
 router.use('/:colegioId/grados', gradoRoutes);

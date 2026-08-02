@@ -21,9 +21,18 @@ app.use('/api', router);
 if (NODE_ENV === 'production') {
   const webDist = path.resolve(__dirname, '../web/dist');
   if (fs.existsSync(webDist)) {
-    app.use(express.static(webDist));
+    app.use(express.static(webDist, {
+      setHeaders(res, filePath) {
+        if (filePath.endsWith('index.html')) {
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        } else {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        }
+      },
+    }));
     app.get('*', (req, res, next) => {
       if (req.path.startsWith('/api')) return next();
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.sendFile(path.join(webDist, 'index.html'));
     });
   }

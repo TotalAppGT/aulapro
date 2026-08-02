@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Sistema de gestion escolar multi-tenant con cobros automaticos",
   "private": true,
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "scripts": {
     "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
     "dev:api": "tsx watch src/index.ts",

@@ -1,0 +1,378 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RolUsuario {
+  SUPERADMIN
+  ADMIN_COLEGIO
+  PROFESOR
+  PADRE
+  ALUMNO
+}
+
+enum EstadoColegio {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+}
+
+enum PlanColegio {
+  STARTER
+  PRO
+  BUSINESS
+}
+
+enum EstadoPago {
+  PENDIENTE
+  PAGADO
+  VERIFICANDO
+  VENCIDO
+}
+
+enum EstadoTarea {
+  PENDIENTE
+  ENTREGADO
+  CALIFICADO
+  TARDE
+}
+
+enum TipoAsistencia {
+  PRESENTE
+  AUSENTE
+  TARDE
+  EXCUSA
+}
+
+enum TipoAnuncio {
+  GENERAL
+  GRADO
+  SECCION
+  URGENTE
+}
+
+model Colegio {
+  id                      String        @id @default(cuid())
+  nombre                  String
+  direccion               String?
+  telefono                String?
+  emailAdmin              String        @unique
+  logoUrl                 String?
+  plan                    PlanColegio   @default(STARTER)
+  estado                  EstadoColegio @default(TRIAL)
+  trialEndsAt             DateTime?
+  recurrenteAccountId     String?
+  stripeSubscriptionId    String?
+  config                  Json          @default("{}")
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+
+  usuarios     Usuario[]
+  alumnos      Alumno[]
+  grados       Grado[]
+  horarios     Horario[]
+  materias     Materia[]
+  tareas       Tarea[]
+  asistencias  Asistencia[]
+  anuncios     Anuncio[]
+  mensajes     Mensaje[]
+  calificaciones Calificacion[]
+  mensualidades  Mensualidad[]
+  documentos   Documento[]
+  pagos        PagoCheckout[]
+  entregasTarea EntregaTarea[]
+
+  @@index([emailAdmin])
+  @@index([estado])
+}
+
+model Usuario {
+  id            String     @id @default(cuid())
+  colegioId     String
+  email         String     @unique
+  passwordHash  String
+  rol           RolUsuario
+  nombre        String
+  telefono      String?
+  activo        Boolean    @default(true)
+  avatarUrl     String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  colegio            Colegio         @relation(fields: [colegioId], references: [id])
+  gradoGuia          Grado[]
+  materiasImparte    Materia[]
+  tareasCreadas      Tarea[]         @relation("TareaCreador")
+  asistenciasReg     Asistencia[]    @relation("AsistenciaRegistrador")
+  anunciosCreados    Anuncio[]       @relation("AnuncioCreador")
+  mensajesEnviados   Mensaje[]       @relation("MensajeRemitente")
+  mensajesRecibidos  Mensaje[]       @relation("MensajeDestinatario")
+  calificacionesReg  Calificacion[]
+  documentosCreados  Documento[]
+  alumnosResponsable Alumno[]        @relation("AlumnoResponsable")
+
+  @@unique([colegioId, email])
+  @@index([colegioId])
+  @@index([rol])
+}
+
+model Alumno {
+  id            String   @id @default(cuid())
+  colegioId     String
+  codigo        String
+  nombre        String
+  apellido      String?
+  gradoId       String?
+  fechaNacimiento DateTime?
+  direccion     String?
+  responsableId String?
+  activo        Boolean  @default(true)
+  fotoUrl       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  colegio       Colegio          @relation(fields: [colegioId], references: [id])
+  grado         Grado?           @relation(fields: [gradoId], references: [id])
+  responsable   Usuario?         @relation("AlumnoResponsable", fields: [responsableId], references: [id])
+  entregas      EntregaTarea[]
+  asistencias   Asistencia[]
+  calificaciones Calificacion[]
+  mensualidades Mensualidad[]
+
+  @@unique([colegioId, codigo])
+  @@index([colegioId, gradoId])
+}
+
+model Grado {
+  id            String   @id @default(cuid())
+  colegioId     String
+  nombre        String
+  nivel         String?
+  profesorGuiaId String?
+  activo        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  colegio       Colegio   @relation(fields: [colegioId], references: [id])
+  profesorGuia  Usuario?  @relation(fields: [profesorGuiaId], references: [id])
+  alumnos       Alumno[]
+  horarios      Horario[]
+  tareas        Tarea[]
+  anuncios      Anuncio[]
+
+  @@unique([colegioId, nombre])
+  @@index([colegioId])
+}
+
+model Materia {
+  id            String   @id @default(cuid())
+  colegioId     String
+  nombre        String
+  profesorId    String?
+  activo        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  colegio       Colegio    @relation(fields: [colegioId], references: [id])
+  profesor      Usuario?   @relation(fields: [profesorId], references: [id])
+  calificaciones Calificacion[]
+  horarios      Horario[]
+
+  @@unique([colegioId, nombre])
+}
+
+model Horario {
+  id          String   @id @default(cuid())
+  colegioId   String
+  gradoId     String
+  materiaId   String?
+  diaSemana   Int      // 1=Lunes..7=Domingo
+  horaInicio  String   // "07:00"
+  horaFin     String   // "08:00"
+  aula        String?
+  createdAt   DateTime @default(now())
+
+  colegio     Colegio  @relation(fields: [colegioId], references: [id])
+  grado       Grado    @relation(fields: [gradoId], references: [id])
+  materia     Materia? @relation(fields: [materiaId], references: [id])
+
+  @@index([colegioId, gradoId])
+  @@index([diaSemana])
+}
+
+model Tarea {
+  id            String   @id @default(cuid())
+  colegioId     String
+  gradoId       String
+  materia       String
+  titulo        String
+  descripcion   String?
+  fechaEntrega  DateTime
+  tipo          String   @default("tarea")
+  archivos      String[]
+  creadoPor     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  colegio       Colegio        @relation(fields: [colegioId], references: [id])
+  grado         Grado          @relation(fields: [gradoId], references: [id])
+  creador       Usuario        @relation("TareaCreador", fields: [creadoPor], references: [id])
+  entregas      EntregaTarea[]
+
+  @@index([colegioId, gradoId])
+  @@index([fechaEntrega])
+}
+
+model EntregaTarea {
+  id              String       @id @default(cuid())
+  colegioId       String
+  tareaId         String
+  alumnoId        String
+  estado          EstadoTarea  @default(PENDIENTE)
+  archivos        String[]
+  nota            Float?
+  comentario      String?
+  fechaEntrega    DateTime?
+  calificadoAt    DateTime?
+  createdAt       DateTime     @default(now())
+
+  colegio         Colegio      @relation(fields: [colegioId], references: [id])
+  tarea           Tarea        @relation(fields: [tareaId], references: [id])
+  alumno          Alumno       @relation(fields: [alumnoId], references: [id])
+
+  @@unique([tareaId, alumnoId])
+  @@index([colegioId, alumnoId])
+}
+
+model Asistencia {
+  id            String         @id @default(cuid())
+  colegioId     String
+  alumnoId      String
+  fecha         DateTime
+  estado        TipoAsistencia
+  justificacion String?
+  registradoPor String
+  createdAt     DateTime       @default(now())
+
+  colegio       Colegio        @relation(fields: [colegioId], references: [id])
+  alumno        Alumno         @relation(fields: [alumnoId], references: [id])
+  registrador   Usuario        @relation("AsistenciaRegistrador", fields: [registradoPor], references: [id])
+
+  @@unique([colegioId, alumnoId, fecha])
+}
+
+model Calificacion {
+  id          String   @id @default(cuid())
+  colegioId   String
+  alumnoId    String
+  materiaId   String
+  bimestre    Int      // 1,2,3,4
+  nota        Float
+  tipo        String   @default("parcial")
+  registradoPor String
+  createdAt   DateTime @default(now())
+
+  colegio     Colegio  @relation(fields: [colegioId], references: [id])
+  alumno      Alumno   @relation(fields: [alumnoId], references: [id])
+  materia     Materia  @relation(fields: [materiaId], references: [id])
+  registrador Usuario  @relation(fields: [registradoPor], references: [id])
+
+  @@index([colegioId, alumnoId, bimestre])
+  @@index([colegioId, materiaId, bimestre])
+}
+
+model Mensualidad {
+  id            String     @id @default(cuid())
+  colegioId     String
+  alumnoId      String
+  mes           String     // "2026-03"
+  monto         Float
+  estado        EstadoPago @default(PENDIENTE)
+  fechaPago     DateTime?
+  comprobanteUrl String?
+  recurrenteCheckoutId String?
+  recurrentePaymentId  String?
+  liquidado     Boolean    @default(false)
+  comisionPlataforma Float?
+  payoutBatchId String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  colegio       Colegio    @relation(fields: [colegioId], references: [id])
+  alumno        Alumno     @relation(fields: [alumnoId], references: [id])
+
+  @@unique([colegioId, alumnoId, mes])
+  @@index([colegioId, mes])
+  @@index([estado])
+}
+
+model PagoCheckout {
+  id            String   @id @default(cuid())
+  colegioId     String
+  checkoutId    String   @unique
+  metadata      Json
+  monto         Float
+  estado        String   @default("pendiente")
+  recurrenteData Json?
+  createdAt     DateTime @default(now())
+
+  colegio       Colegio  @relation(fields: [colegioId], references: [id])
+
+  @@index([colegioId])
+  @@index([checkoutId])
+}
+
+model Anuncio {
+  id          String     @id @default(cuid())
+  colegioId   String
+  titulo      String
+  contenido   String
+  tipo        TipoAnuncio @default(GENERAL)
+  gradoId     String?
+  enviarWhatsapp Boolean  @default(false)
+  enviarEmail Boolean     @default(false)
+  archivos    String[]
+  creadoPor   String
+  createdAt   DateTime   @default(now())
+
+  colegio     Colegio    @relation(fields: [colegioId], references: [id])
+  grado       Grado?     @relation(fields: [gradoId], references: [id])
+  creador     Usuario    @relation("AnuncioCreador", fields: [creadoPor], references: [id])
+
+  @@index([colegioId, createdAt(sort: Desc)])
+}
+
+model Mensaje {
+  id              String   @id @default(cuid())
+  colegioId       String
+  remitenteId     String
+  destinatarioId  String
+  contenido       String
+  leido           Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  colegio         Colegio  @relation(fields: [colegioId], references: [id])
+  remitente       Usuario  @relation("MensajeRemitente", fields: [remitenteId], references: [id])
+  destinatario    Usuario  @relation("MensajeDestinatario", fields: [destinatarioId], references: [id])
+
+  @@index([colegioId, destinatarioId, leido])
+}
+
+model Documento {
+  id          String   @id @default(cuid())
+  colegioId   String
+  tipo        String
+  titulo      String
+  url         String
+  tamanoBytes Int?
+  creadoPor   String
+  createdAt   DateTime @default(now())
+
+  colegio     Colegio  @relation(fields: [colegioId], references: [id])
+  creador     Usuario  @relation(fields: [creadoPor], references: [id])
+
+  @@index([colegioId, tipo])
+}

@@ -46,8 +46,8 @@ export async function api<T = unknown>(
   }
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: "Error de red" }))
-    throw new Error(error.message || `Error del servidor (${response.status})`)
+    const data = await response.json().catch(() => ({}))
+    throw new Error(data.error || data.message || `Error del servidor (${response.status})`)
   }
 
   return response.json()

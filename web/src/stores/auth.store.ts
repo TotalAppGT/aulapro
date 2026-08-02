@@ -1,12 +1,5 @@
 import { create } from "zustand"
 import { apiPost } from "@/lib/api"
-import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  type UserCredential,
-} from "firebase/auth"
-import { auth } from "@/lib/firebase"
 
 export type Role = "SUPERADMIN" | "ADMIN_COLEGIO" | "PROFESOR" | "PADRE" | "ALUMNO"
 
@@ -84,9 +77,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   login: async (email: string, password: string) => {
     set({ loading: true })
     try {
-      const cred = await signInWithEmailAndPassword(auth, email, password)
-      const idToken = await cred.user.getIdToken()
-      const data = await apiPost<BackendAuthResponse>("/auth/firebase", { idToken })
+      const data = await apiPost<BackendAuthResponse>("/auth/login", { email, password })
       const { user, token } = applyAuthSession(data.token, data)
       set({ user, token })
     } finally {
@@ -97,22 +88,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   register: async (data: RegisterData) => {
     set({ loading: true })
     try {
-      let cred: UserCredential
-      try {
-        cred = await createUserWithEmailAndPassword(auth, data.email, data.password)
-      } catch (err: unknown) {
-        const code = (err as { code?: string }).code
-        if (code === "auth/email-already-in-use") {
-          cred = await signInWithEmailAndPassword(auth, data.email, data.password)
-        } else {
-          throw err
-        }
-      }
-      const idToken = await cred.user.getIdToken()
-      const result = await apiPost<BackendAuthResponse>("/auth/firebase", {
-        idToken,
+      const result = await apiPost<BackendAuthResponse>("/auth/registro", {
         nombreColegio: data.nombreColegio,
         nombre: data.nombreAdmin,
+        email: data.email,
+        password: data.password,
         telefono: data.telefono,
       })
       const { user, token } = applyAuthSession(result.token, result)
@@ -123,7 +103,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
-    await signOut(auth).catch(() => {})
     localStorage.removeItem("token")
     localStorage.removeItem("user")
     set({ user: null, token: null })

@@ -2,7 +2,7 @@ import { useState, useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import {
   Users,
-  DollarSign,
+  Banknote,
   AlertTriangle,
   Calendar,
   ArrowUpRight,
@@ -251,7 +251,7 @@ export default function AdminDashboardPage() {
                 </p>
               </div>
               <div className="rounded-lg bg-green-50 p-3">
-                <DollarSign className="h-6 w-6 text-green-600" />
+                <Banknote className="h-6 w-6 text-green-600" />
               </div>
             </div>
             <div className="mt-3 flex items-center text-xs text-green-600">

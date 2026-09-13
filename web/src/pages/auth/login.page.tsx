@@ -4,7 +4,7 @@ import { School, Eye, EyeOff, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { useAuthStore } from "@/stores/auth.store"
+import { useAuthStore, getLastPath } from "@/stores/auth.store"
 
 interface LoginError {
   email?: string
@@ -58,7 +58,7 @@ export default function LoginPage() {
     setErrors({})
     try {
       await login(email, password)
-      navigate("/app")
+      navigate(getLastPath() ?? "/app")
     } catch (err: unknown) {
       setErrors({ general: errorMessage(err) })
     }

@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import {
   Users,
-  DollarSign,
+  Banknote,
   BookOpen,
   Megaphone,
   MessageSquare,
@@ -247,7 +247,7 @@ export default function PadreDashboardPage() {
                       !pagoPendiente ? "bg-green-50" : "bg-yellow-50"
                     }`}
                   >
-                    <DollarSign
+                    <Banknote
                       className={`h-5 w-5 ${
                         !pagoPendiente ? "text-green-600" : "text-yellow-600"
                       }`}
@@ -401,7 +401,7 @@ export default function PadreDashboardPage() {
                       navigate(`/app/pagar?alumnoId=${hijoActual.id}&mes=${pagoPendiente.mes}`)
                     }
                   >
-                    <DollarSign className="mr-1 h-4 w-4" />
+                    <Banknote className="mr-1 h-4 w-4" />
                     Pagar ahora
                   </Button>
                 </div>

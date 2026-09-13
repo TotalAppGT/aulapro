@@ -1,12 +1,12 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom"
-import { useAuthStore, Role } from "@/stores/auth.store"
+import { useAuthStore, Role, saveLastPath } from "@/stores/auth.store"
 import { Button } from "@/components/ui/button"
 import {
   LayoutDashboard,
   GraduationCap,
   Users,
-  DollarSign,
+  Banknote,
   ClipboardCheck,
   BookOpen,
   CalendarCheck,
@@ -37,7 +37,7 @@ const adminNav: NavItemDef[] = [
   { to: "/app", label: "Dashboard", icon: LayoutDashboard },
   { to: "/app/alumnos", label: "Alumnos", icon: Users },
   { to: "/app/grados", label: "Grados", icon: GraduationCap },
-  { to: "/app/pagos", label: "Pagos", icon: DollarSign },
+  { to: "/app/pagos", label: "Pagos", icon: Banknote },
   { to: "/app/calificaciones", label: "Calificaciones", icon: ClipboardCheck },
   { to: "/app/tareas", label: "Tareas", icon: BookOpen },
   { to: "/app/asistencia", label: "Asistencia", icon: CalendarCheck },
@@ -90,6 +90,12 @@ export default function DashboardLayout() {
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
+
+  useEffect(() => {
+    if (location.pathname.startsWith("/app")) {
+      saveLastPath(location.pathname)
+    }
+  }, [location.pathname])
 
   if (!user) {
     return null

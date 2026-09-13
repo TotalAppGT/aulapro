@@ -53,6 +53,19 @@ interface AuthState {
   isAuthenticated: () => boolean
 }
 
+const LAST_PATH_KEY = "aulapro:lastPath"
+
+export function saveLastPath(path: string) {
+  if (path.startsWith("/app")) {
+    localStorage.setItem(LAST_PATH_KEY, path)
+  }
+}
+
+export function getLastPath(): string | null {
+  const path = localStorage.getItem(LAST_PATH_KEY)
+  return path && path.startsWith("/app") ? path : null
+}
+
 function applyAuthSession(token: string, data: BackendAuthResponse) {
   const user: User = {
     id: data.usuario.id,

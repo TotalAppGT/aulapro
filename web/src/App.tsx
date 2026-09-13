@@ -6,7 +6,7 @@ import RegistroPage from "@/pages/auth/registro.page"
 import NotFoundPage from "@/pages/not-found.page"
 import DashboardLayout from "@/components/layout/dashboard-layout"
 import ProtectedRoute from "@/components/auth/protected-route"
-import { useAuthStore, Role } from "@/stores/auth.store"
+import { useAuthStore, Role, getLastPath } from "@/stores/auth.store"
 import AdminDashboard from "@/pages/admin/dashboard.page"
 import AlumnosPage from "@/pages/admin/alumnos.page"
 import GradosPage from "@/pages/admin/grados.page"
@@ -27,6 +27,12 @@ import MensajesPage from "@/pages/padre/mensajes.page"
 import NotasPage from "@/pages/alumno/notas.page"
 import HorarioPage from "@/pages/alumno/horario.page"
 import PagarPage from "@/pages/pagar/pagar.page"
+
+function RootRoute() {
+  const user = useAuthStore((s) => s.user)
+  if (!user) return <LandingPage />
+  return <Navigate to={getLastPath() ?? "/app"} replace />
+}
 
 function HomeRedirect() {
   const user = useAuthStore((s) => s.user)
@@ -60,7 +66,7 @@ function RoleRoute({
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<LandingPage />} />
+      <Route path="/" element={<RootRoute />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/registro" element={<RegistroPage />} />
       <Route

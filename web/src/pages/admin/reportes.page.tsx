@@ -4,7 +4,7 @@ import {
   FileBarChart,
   Users,
   Download,
-  DollarSign,
+  Banknote,
   TrendingUp,
   Loader2,
   CreditCard,
@@ -149,7 +149,7 @@ export default function ReportesPage() {
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="rounded-lg bg-green-50 p-2">
-                <DollarSign className="h-5 w-5 text-green-600" />
+                <Banknote className="h-5 w-5 text-green-600" />
               </div>
               <div>
                 <p className="text-xs font-medium text-gray-500">Recaudado</p>

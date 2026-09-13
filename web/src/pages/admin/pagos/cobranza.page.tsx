@@ -5,7 +5,7 @@ import {
   Download,
   Send,
   Loader2,
-  DollarSign,
+  Banknote,
   Clock,
   TrendingUp,
   CreditCard,
@@ -205,7 +205,7 @@ export default function CobranzaPage() {
               </>
             ) : (
               <>
-                <DollarSign className="mr-2 h-4 w-4" />
+                <Banknote className="mr-2 h-4 w-4" />
                 Generar Cobros del Mes
               </>
             )}
@@ -222,7 +222,7 @@ export default function CobranzaPage() {
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="rounded-lg bg-green-50 p-2">
-                <DollarSign className="h-5 w-5 text-green-600" />
+                <Banknote className="h-5 w-5 text-green-600" />
               </div>
               <div>
                 <p className="text-xs font-medium text-gray-500">

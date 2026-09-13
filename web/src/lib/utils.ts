@@ -6,11 +6,11 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("es-GT", {
-    style: "currency",
-    currency: "GTQ",
+  const value = amount.toLocaleString("es-GT", {
     minimumFractionDigits: 2,
-  }).format(amount)
+    maximumFractionDigits: 2,
+  })
+  return `Q${value}`
 }
 
 export function formatDate(date: string | Date): string {

@@ -27,6 +27,10 @@ import {
   Zap,
   TrendingUp,
   Award,
+  QrCode,
+  CalendarClock,
+  LifeBuoy,
+  Lock,
 } from "lucide-react"
 
 const painPoints = [
@@ -93,6 +97,59 @@ const features = [
       "Genera reportes estadisticos y cuadros oficiales listos para presentar al ministerio de educacion.",
     tag: "Reportes",
   },
+  {
+    icon: QrCode,
+    title: "Carnets con Codigo QR",
+    description:
+      "Cada alumno recibe un carnet digital con codigo QR unico. Escanea para registrar asistencia desde el celular en segundos.",
+    tag: "Asistencia",
+  },
+  {
+    icon: CalendarClock,
+    title: "Notificaciones Programadas",
+    description:
+      "Programa alertas automaticas por WhatsApp: diarias, semanales o mensuales. Recordatorios de pago y comunicados sin esfuerzo.",
+    tag: "Comunicacion",
+  },
+]
+
+const steps = [
+  {
+    number: "01",
+    icon: ClipboardCheck,
+    title: "Crea tu cuenta gratis",
+    description:
+      "Registra tu colegio en 2 minutos y obtén 14 dias de prueba sin tarjeta de credito.",
+  },
+  {
+    number: "02",
+    icon: Users,
+    title: "Carga alumnos y grados",
+    description:
+      "Importa tu lista de alumnos, asigna grados y genera los codigos QR de cada carnet automaticamente.",
+  },
+  {
+    number: "03",
+    icon: Coins,
+    title: "Activa cobros y comunicacion",
+    description:
+      "Genera cobros mensuales, envia recordatorios por WhatsApp y deja que los padres paguen en linea.",
+  },
+]
+
+const comparisons = [
+  { feature: "Alumnos", starter: "100", pro: "500", business: "Ilimitados" },
+  { feature: "Grados y materias", starter: true, pro: true, business: true },
+  { feature: "Cobranza automatizada", starter: true, pro: true, business: true },
+  { feature: "Pagos en linea (tarjeta/transferencia)", starter: false, pro: true, business: true },
+  { feature: "WhatsApp integrado", starter: false, pro: true, business: true },
+  { feature: "Notificaciones programadas", starter: false, pro: true, business: true },
+  { feature: "Carnets con codigo QR", starter: false, pro: true, business: true },
+  { feature: "Tareas en linea", starter: false, pro: true, business: true },
+  { feature: "Reportes MINEDUC", starter: false, pro: true, business: true },
+  { feature: "Multiples sedes", starter: false, pro: false, business: true },
+  { feature: "API de integracion", starter: false, pro: false, business: true },
+  { feature: "Soporte dedicado 24/7", starter: false, pro: false, business: true },
 ]
 
 const pricingPlans = [
@@ -485,6 +542,51 @@ export default function LandingPage() {
       </section>
 
       <section
+        id="how"
+        className="border-t border-gray-100 bg-gradient-to-b from-white to-gray-50 px-4 py-20 sm:px-6 lg:px-8"
+      >
+        <div className="mx-auto max-w-5xl">
+          <div className="text-center">
+            <Badge variant="secondary" className="mb-4">
+              Como funciona
+            </Badge>
+            <h2 className="text-3xl font-bold text-gray-900 sm:text-4xl">
+              En 3 pasos estas operando
+            </h2>
+            <p className="mt-3 text-lg text-gray-600">
+              No necesitas conocimientos tecnicos. AulaPro esta disenado para
+              directores y administradores.
+            </p>
+          </div>
+
+          <div className="mt-12 grid gap-8 md:grid-cols-3">
+            {steps.map((step, i) => {
+              const Icon = step.icon
+              return (
+                <div key={i} className="relative text-center">
+                  {i < steps.length - 1 && (
+                    <div className="absolute left-[60%] top-10 hidden h-px w-[80%] bg-gradient-to-r from-primary/40 to-transparent md:block" />
+                  )}
+                  <div className="relative mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-white shadow-lg ring-1 ring-gray-100">
+                    <Icon className="h-9 w-9 text-primary" />
+                    <span className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-r from-primary to-indigo-600 text-xs font-bold text-white">
+                      {step.number}
+                    </span>
+                  </div>
+                  <h3 className="mt-5 text-lg font-semibold text-gray-900">
+                    {step.title}
+                  </h3>
+                  <p className="mx-auto mt-2 max-w-xs text-sm text-gray-600">
+                    {step.description}
+                  </p>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </section>
+
+      <section
         id="testimonials"
         className="border-t border-gray-100 bg-gradient-to-b from-gray-50 to-white px-4 py-20 sm:px-6 lg:px-8"
       >
@@ -652,6 +754,116 @@ export default function LandingPage() {
             Todos los precios en Quetzales (GTQ). IVA incluido. Cambio de plan
             en cualquier momento.
           </p>
+
+          <div className="mt-16 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50">
+                    <th className="px-6 py-4 text-left font-semibold text-gray-900">
+                      Comparacion de planes
+                    </th>
+                    <th className="px-6 py-4 text-center font-semibold text-gray-900">
+                      Starter
+                    </th>
+                    <th className="px-6 py-4 text-center font-semibold text-primary">
+                      Pro
+                    </th>
+                    <th className="px-6 py-4 text-center font-semibold text-gray-900">
+                      Business
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {comparisons.map((row, i) => (
+                    <tr
+                      key={i}
+                      className="border-b border-gray-100 last:border-0"
+                    >
+                      <td className="px-6 py-3 text-gray-700">{row.feature}</td>
+                      <td className="px-6 py-3 text-center">
+                        {typeof row.starter === "boolean" ? (
+                          row.starter ? (
+                            <Check className="mx-auto h-4 w-4 text-green-500" />
+                          ) : (
+                            <X className="mx-auto h-4 w-4 text-gray-300" />
+                          )
+                        ) : (
+                          <span className="font-medium text-gray-700">
+                            {row.starter}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-3 text-center">
+                        {typeof row.pro === "boolean" ? (
+                          row.pro ? (
+                            <Check className="mx-auto h-4 w-4 text-green-500" />
+                          ) : (
+                            <X className="mx-auto h-4 w-4 text-gray-300" />
+                          )
+                        ) : (
+                          <span className="font-medium text-gray-700">
+                            {row.pro}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-3 text-center">
+                        {typeof row.business === "boolean" ? (
+                          row.business ? (
+                            <Check className="mx-auto h-4 w-4 text-green-500" />
+                          ) : (
+                            <X className="mx-auto h-4 w-4 text-gray-300" />
+                          )
+                        ) : (
+                          <span className="font-medium text-gray-700">
+                            {row.business}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="mt-10 grid gap-4 sm:grid-cols-3">
+            {[
+              {
+                icon: Lock,
+                title: "Datos seguros",
+                text: "Cifrado SSL y copias de seguridad diarias.",
+              },
+              {
+                icon: LifeBuoy,
+                title: "Soporte local",
+                text: "Atencion en español desde Guatemala.",
+              },
+              {
+                icon: Clock,
+                title: "Setup en 1 dia",
+                text: "Activacion guiada incluida en todos los planes.",
+              },
+            ].map((item, i) => {
+              const Icon = item.icon
+              return (
+                <div
+                  key={i}
+                  className="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4"
+                >
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-white shadow-sm">
+                    <Icon className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">
+                      {item.title}
+                    </p>
+                    <p className="text-xs text-gray-500">{item.text}</p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       </section>
 

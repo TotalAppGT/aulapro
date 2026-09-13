@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { Users, Plus, Loader2, Search, GraduationCap } from "lucide-react"
+import { Users, Plus, Loader2, Search, GraduationCap, QrCode, Download, RefreshCw, X } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -27,6 +27,15 @@ interface Grado {
   nivel: string | null
 }
 
+interface QrData {
+  alumnoId: string
+  codigo: string
+  nombre: string
+  qrToken: string
+  qrImage: string
+  urlVerificacion: string
+}
+
 export default function AlumnosPage() {
   const user = useAuthStore((s) => s.user)
   const queryClient = useQueryClient()
@@ -34,6 +43,7 @@ export default function AlumnosPage() {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({
     codigo: "",
+    cui: "",
     nombre: "",
     apellido: "",
     gradoId: "",
@@ -55,6 +65,7 @@ export default function AlumnosPage() {
     mutationFn: () =>
       apiPost(`/${user?.colegioId}/alumnos`, {
         codigo: form.codigo,
+        cui: form.cui || undefined,
         nombre: form.nombre,
         apellido: form.apellido || undefined,
         gradoId: form.gradoId || undefined,
@@ -62,9 +73,31 @@ export default function AlumnosPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["alumnos"] })
       setShowForm(false)
-      setForm({ codigo: "", nombre: "", apellido: "", gradoId: "" })
+      setForm({ codigo: "", cui: "", nombre: "", apellido: "", gradoId: "" })
     },
   })
+
+  const [carnetAlumno, setCarnetAlumno] = useState<Alumno | null>(null)
+
+  const carnetQuery = useQuery<QrData>({
+    queryKey: ["carnet", user?.colegioId, carnetAlumno?.id],
+    queryFn: () =>
+      apiGet<QrData>(`/${user?.colegioId}/alumnos/${carnetAlumno?.id}/qr`),
+    enabled: !!carnetAlumno && !!user?.colegioId,
+  })
+
+  const regenerarQr = async () => {
+    await apiGet<QrData>(`/${user?.colegioId}/alumnos/${carnetAlumno?.id}/qr?regenerar=true`)
+    await carnetQuery.refetch()
+  }
+
+  const handleDescargarCarnet = () => {
+    if (!carnetQuery.data?.qrImage) return
+    const a = document.createElement("a")
+    a.href = carnetQuery.data.qrImage
+    a.download = `carnet-${carnetQuery.data.codigo}.png`
+    a.click()
+  }
 
   const filtered = (alumnos ?? []).filter((a) => {
     const q = search.toLowerCase()
@@ -100,9 +133,17 @@ export default function AlumnosPage() {
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">Codigo</label>
                 <Input
-                  placeholder="ALM-001"
+                  placeholder="2026-001"
                   value={form.codigo}
                   onChange={(e) => setForm({ ...form, codigo: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">CUI / DPI (opcional)</label>
+                <Input
+                  placeholder="Ej: 1234567890101"
+                  value={form.cui}
+                  onChange={(e) => setForm({ ...form, cui: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
@@ -189,7 +230,8 @@ export default function AlumnosPage() {
                     <th className="pb-3 pr-4 font-medium text-gray-500">Nombre</th>
                     <th className="pb-3 pr-4 font-medium text-gray-500">Grado</th>
                     <th className="pb-3 pr-4 font-medium text-gray-500">Responsable</th>
-                    <th className="pb-3 font-medium text-gray-500">Estado</th>
+                    <th className="pb-3 pr-4 font-medium text-gray-500">Estado</th>
+                    <th className="pb-3 font-medium text-gray-500">Carnet</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -215,6 +257,18 @@ export default function AlumnosPage() {
                       <td className="py-3">
                         <Badge variant="success">Activo</Badge>
                       </td>
+                      <td className="py-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setCarnetAlumno(alumno)
+                          }}
+                        >
+                          <QrCode className="h-3 w-3" />
+                          <span className="ml-1">QR</span>
+                        </Button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -223,6 +277,59 @@ export default function AlumnosPage() {
           )}
         </CardContent>
       </Card>
+
+      {carnetAlumno && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Carnet Digital</h3>
+                <p className="text-sm text-gray-500">
+                  {carnetAlumno.codigo} - {carnetAlumno.nombre} {carnetAlumno.apellido}
+                </p>
+              </div>
+              <button
+                onClick={() => setCarnetAlumno(null)}
+                className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mt-5 flex justify-center">
+              {!carnetQuery.data || carnetQuery.isLoading ? (
+                <div className="flex h-64 w-64 items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                </div>
+              ) : (
+                <img
+                  src={carnetQuery.data.qrImage}
+                  alt="QR del alumno"
+                  className="h-64 w-64 rounded-md border border-gray-200"
+                />
+              )}
+            </div>
+
+            <p className="mt-3 text-center text-xs text-gray-500">
+              El profesor escanea este codigo para registrar asistencia
+            </p>
+
+            <div className="mt-5 grid grid-cols-3 gap-2">
+              <Button variant="outline" size="sm" onClick={regenerarQr}>
+                <RefreshCw className="h-3 w-3" />
+                <span className="ml-1">Regenerar</span>
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleDescargarCarnet}>
+                <Download className="h-3 w-3" />
+                <span className="ml-1">Descargar</span>
+              </Button>
+              <Button size="sm" onClick={() => setCarnetAlumno(null)}>
+                Cerrar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

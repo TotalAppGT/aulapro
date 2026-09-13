@@ -56,6 +56,13 @@ enum TipoAnuncio {
   URGENTE
 }
 
+enum FrecuenciaNotificacion {
+  UNA_SOLA_VEZ
+  DIARIA
+  SEMANAL
+  MENSUAL
+}
+
 model Colegio {
   id                      String        @id @default(cuid())
   nombre                  String
@@ -86,6 +93,7 @@ model Colegio {
   documentos   Documento[]
   pagos        PagoCheckout[]
   entregasTarea EntregaTarea[]
+  notificaciones NotificacionProgramada[]
 
   @@index([emailAdmin])
   @@index([estado])
@@ -115,6 +123,7 @@ model Usuario {
   calificacionesReg  Calificacion[]
   documentosCreados  Documento[]
   alumnosResponsable Alumno[]        @relation("AlumnoResponsable")
+  notificacionesCreadas NotificacionProgramada[] @relation("NotificacionCreador")
 
   @@unique([colegioId, email])
   @@index([colegioId])
@@ -125,12 +134,14 @@ model Alumno {
   id            String   @id @default(cuid())
   colegioId     String
   codigo        String
+  cui           String?
   nombre        String
   apellido      String?
   gradoId       String?
   fechaNacimiento DateTime?
   direccion     String?
   responsableId String?
+  qrToken       String?  @unique
   activo        Boolean  @default(true)
   fotoUrl       String?
   createdAt     DateTime @default(now())
@@ -180,6 +191,7 @@ model Materia {
   profesor      Usuario?   @relation(fields: [profesorId], references: [id])
   calificaciones Calificacion[]
   horarios      Horario[]
+  asistencias   Asistencia[]
 
   @@unique([colegioId, nombre])
 }
@@ -251,6 +263,7 @@ model Asistencia {
   id            String         @id @default(cuid())
   colegioId     String
   alumnoId      String
+  materiaId     String?
   fecha         DateTime
   estado        TipoAsistencia
   justificacion String?
@@ -259,9 +272,11 @@ model Asistencia {
 
   colegio       Colegio        @relation(fields: [colegioId], references: [id])
   alumno        Alumno         @relation(fields: [alumnoId], references: [id])
+  materia       Materia?       @relation(fields: [materiaId], references: [id])
   registrador   Usuario        @relation("AsistenciaRegistrador", fields: [registradoPor], references: [id])
 
-  @@unique([colegioId, alumnoId, fecha])
+  @@unique([colegioId, alumnoId, fecha, materiaId])
+  @@index([colegioId, fecha])
 }
 
 model Calificacion {
@@ -375,4 +390,31 @@ model Documento {
   creador     Usuario  @relation(fields: [creadoPor], references: [id])
 
   @@index([colegioId, tipo])
+}
+
+model NotificacionProgramada {
+  id           String                  @id @default(cuid())
+  colegioId    String
+  titulo       String
+  mensaje      String
+  canal        String                  @default("WHATSAPP")
+  frecuencia   FrecuenciaNotificacion  @default(UNA_SOLA_VEZ)
+  hora         String                  // "HH:mm"
+  diaSemana    Int?                    // 1=Lunes..7=Domingo (para SEMANAL)
+  diaMes       Int?                    // 1..31 (para MENSUAL)
+  roles        String[]                // roles destino: ADMIN_COLEGIO, PROFESOR, PADRE, ALUMNO
+  telefonos    String[]                // numeros explicitos adicionales
+  activa       Boolean                 @default(true)
+  ultimoEnvioAt DateTime?
+  proximoEnvioAt DateTime?
+  enviadoVeces Int                     @default(0)
+  creadoPor    String
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+
+  colegio      Colegio  @relation(fields: [colegioId], references: [id])
+  creador      Usuario  @relation("NotificacionCreador", fields: [creadoPor], references: [id])
+
+  @@index([colegioId, activa])
+  @@index([proximoEnvioAt])
 }

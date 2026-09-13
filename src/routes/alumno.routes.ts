@@ -23,11 +23,12 @@ alumnoRoutes.get('/', async (req: Request, res: Response, next: NextFunction) =>
 
 alumnoRoutes.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { codigo, nombre, apellido, gradoId, fechaNacimiento, direccion, responsableId } = req.body;
+    const { codigo, cui, nombre, apellido, gradoId, fechaNacimiento, direccion, responsableId } = req.body;
     const alumno = await prisma.alumno.create({
       data: {
         colegioId: req.user!.colegioId,
         codigo,
+        cui: cui || null,
         nombre,
         apellido,
         gradoId: gradoId || null,

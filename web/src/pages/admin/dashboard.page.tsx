@@ -142,10 +142,9 @@ export default function AdminDashboardPage() {
     queryKey: ["admin-stats", user?.colegioId, selectedMonth],
     queryFn: () =>
       apiGet<DashboardStats>(
-        `/colegios/${user?.colegioId}/dashboard/stats`,
+        `/${user?.colegioId}/dashboard/stats`,
         { mes: selectedMonth }
       ),
-    placeholderData: mockStats,
     staleTime: 30000,
   })
 
@@ -154,10 +153,39 @@ export default function AdminDashboardPage() {
   const { data: historial } = useQuery<MesPago[]>({
     queryKey: ["admin-historial", user?.colegioId],
     queryFn: () =>
-      apiGet<MesPago[]>(`/colegios/${user?.colegioId}/dashboard/historial`),
-    placeholderData: mockHistorial,
+      apiGet<MesPago[]>(`/${user?.colegioId}/dashboard/historial`),
     staleTime: 60000,
   })
+
+  const { data: pagosRecientes } = useQuery<{
+    cobros: (Omit<PagoReciente, "fecha"> & { fechaPago: string | null })[]
+  }>({
+    queryKey: ["admin-recientes", user?.colegioId],
+    queryFn: () =>
+      apiGet<{ cobros: (Omit<PagoReciente, "fecha"> & { fechaPago: string | null })[] }>(
+        `/${user?.colegioId}/pagos`
+      ),
+    staleTime: 60000,
+  })
+
+  const actividadReciente = useMemo(() => {
+    const real = (pagosRecientes?.cobros ?? [])
+      .filter((c) => c.fechaPago)
+      .sort(
+        (a, b) =>
+          new Date(b.fechaPago!).getTime() - new Date(a.fechaPago!).getTime()
+      )
+      .slice(0, 5)
+      .map((c) => ({
+        id: c.id,
+        alumnoNombre: c.alumnoNombre,
+        gradoNombre: c.gradoNombre,
+        monto: c.monto,
+        fecha: c.fechaPago as string,
+        estado: c.estado,
+      }))
+    return real.length > 0 ? real : mockPagosRecientes
+  }, [pagosRecientes])
 
   const maxRecaudado = useMemo(() => {
     const h = historial ?? mockHistorial
@@ -337,7 +365,7 @@ export default function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {mockPagosRecientes.map((pago) => (
+              {actividadReciente.map((pago) => (
                 <div
                   key={pago.id}
                   className="flex items-start justify-between border-b border-gray-100 pb-3 last:border-0 last:pb-0"

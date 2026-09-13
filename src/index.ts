@@ -6,6 +6,7 @@ import { PORT, NODE_ENV, CORS_ORIGIN } from './config';
 import { prisma } from './lib/prisma';
 import { router } from './routes/index';
 import { errorHandler } from './middleware/error';
+import { startScheduler } from './jobs/scheduler';
 
 const app = express();
 
@@ -47,6 +48,8 @@ async function main() {
   app.listen(PORT, () => {
     console.log(`[Server] Running on http://localhost:${PORT}`);
   });
+
+  startScheduler();
 }
 
 main().catch((err) => {

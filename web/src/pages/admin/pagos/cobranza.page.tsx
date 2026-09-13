@@ -57,94 +57,17 @@ function getMonthOptions() {
   return options
 }
 
-const mockCobros: CobroRecord[] = [
-  {
-    id: "1",
-    alumnoId: "a1",
-    alumnoNombre: "Maria Garcia",
-    gradoNombre: "3ro Basico A",
-    monto: 225,
-    estado: "pagado",
-    fechaPago: new Date().toISOString(),
-    fechaVencimiento: new Date(new Date().getFullYear(), new Date().getMonth(), 10).toISOString(),
-  },
-  {
-    id: "2",
-    alumnoId: "a2",
-    alumnoNombre: "Carlos Perez",
-    gradoNombre: "5to Primaria B",
-    monto: 225,
-    estado: "pagado",
-    fechaPago: new Date(Date.now() - 86400000).toISOString(),
-    fechaVencimiento: new Date(new Date().getFullYear(), new Date().getMonth(), 10).toISOString(),
-  },
-  {
-    id: "3",
-    alumnoId: "a3",
-    alumnoNombre: "Ana Lopez",
-    gradoNombre: "2do Basico A",
-    monto: 225,
-    estado: "pendiente",
-    fechaPago: null,
-    fechaVencimiento: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 5).toISOString(),
-  },
-  {
-    id: "4",
-    alumnoId: "a4",
-    alumnoNombre: "Jose Mendez",
-    gradoNombre: "1ro Primaria C",
-    monto: 225,
-    estado: "pendiente",
-    fechaPago: null,
-    fechaVencimiento: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 5).toISOString(),
-  },
-  {
-    id: "5",
-    alumnoId: "a5",
-    alumnoNombre: "Luisa Ramirez",
-    gradoNombre: "3ro Basico B",
-    monto: 225,
-    estado: "vencido",
-    fechaPago: null,
-    fechaVencimiento: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 10).toISOString(),
-  },
-  {
-    id: "6",
-    alumnoId: "a6",
-    alumnoNombre: "Pedro Samayoa",
-    gradoNombre: "4to Primaria A",
-    monto: 225,
-    estado: "vencido",
-    fechaPago: null,
-    fechaVencimiento: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 10).toISOString(),
-  },
-  {
-    id: "7",
-    alumnoId: "a7",
-    alumnoNombre: "Elena Vasquez",
-    gradoNombre: "6to Primaria B",
-    monto: 225,
-    estado: "pagado",
-    fechaPago: new Date(Date.now() - 86400000 * 3).toISOString(),
-    fechaVencimiento: new Date(new Date().getFullYear(), new Date().getMonth(), 10).toISOString(),
-  },
-  {
-    id: "8",
-    alumnoId: "a8",
-    alumnoNombre: "Daniel Morales",
-    gradoNombre: "1ro Basico A",
-    monto: 225,
-    estado: "pagado",
-    fechaPago: new Date(Date.now() - 86400000 * 4).toISOString(),
-    fechaVencimiento: new Date(new Date().getFullYear(), new Date().getMonth(), 10).toISOString(),
-  },
-]
-
 const mockOverview: CobrosOverview = {
   totalRecaudado: 44550,
   totalPendiente: 10575,
   porcentajeCompletado: 80.8,
   comisionDelMes: 1782,
+}
+
+interface CobrosResponse {
+  mes: string
+  resumen: CobrosOverview
+  cobros: CobroRecord[]
 }
 
 const ESTADO_TABS: { label: string; value: EstadoPago | "todos" }[] = [
@@ -164,21 +87,21 @@ export default function CobranzaPage() {
   const [estadoFilter, setEstadoFilter] = useState<EstadoPago | "todos">("todos")
   const [searchQuery, setSearchQuery] = useState("")
 
-  const { data: cobros, isLoading } = useQuery<CobroRecord[]>({
+  const { data: cobrosData, isLoading } = useQuery<CobrosResponse>({
     queryKey: ["cobros", user?.colegioId, selectedMonth],
     queryFn: () =>
-      apiGet<CobroRecord[]>(`/colegios/${user?.colegioId}/pagos`, {
+      apiGet<CobrosResponse>(`/${user?.colegioId}/pagos`, {
         mes: selectedMonth,
       }),
-    placeholderData: mockCobros,
     staleTime: 30000,
   })
 
-  const overviewData = mockOverview
+  const cobros = cobrosData?.cobros ?? []
+  const overviewData = cobrosData?.resumen ?? mockOverview
 
   const generarCobrosMutation = useMutation({
     mutationFn: () =>
-      apiPost(`/colegios/${user?.colegioId}/pagos/generar-mes`, {
+      apiPost(`/${user?.colegioId}/pagos/generar-mes`, {
         mes: selectedMonth,
       }),
     onSuccess: () => {
@@ -188,13 +111,12 @@ export default function CobranzaPage() {
 
   const enviarRecordatorioMutation = useMutation({
     mutationFn: (cobroId: string) =>
-      apiPost(`/colegios/${user?.colegioId}/pagos/${cobroId}/recordatorio`),
+      apiPost(`/${user?.colegioId}/pagos/${cobroId}/recordatorio`),
     onSuccess: () => {},
   })
 
   const filteredCobros = useMemo(() => {
-    const data = cobros ?? mockCobros
-    let filtered = data
+    let filtered = cobros
 
     if (estadoFilter !== "todos") {
       filtered = filtered.filter((c) => c.estado === estadoFilter)
@@ -221,6 +143,31 @@ export default function CobranzaPage() {
   const handleEnviarRecordatorio = async (cobroId: string) => {
     try {
       await enviarRecordatorioMutation.mutateAsync(cobroId)
+    } catch (_) {}
+  }
+
+  const handleDescargarReporte = async () => {
+    try {
+      const reporte = await apiGet<{
+        mes: string
+        resumen: { total: number; pagadas: number; pendientes: number; vencidas: number; totalRecaudado: number }
+        detalle: { alumno: string; grado: string; monto: number; estado: string; fechaPago: string | null }[]
+      }>(`/${user?.colegioId}/pagos/reporte/${selectedMonth}`)
+
+      const header = "Alumno,Grado,Monto,Estado,Fecha Pago"
+      const rows = reporte.detalle.map((d) =>
+        [d.alumno, d.grado, d.monto, d.estado, d.fechaPago ? new Date(d.fechaPago).toLocaleDateString() : ""]
+          .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+          .join(",")
+      )
+      const csv = [header, ...rows].join("\n")
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `reporte-${selectedMonth}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
     } catch (_) {}
   }
 
@@ -263,7 +210,7 @@ export default function CobranzaPage() {
               </>
             )}
           </Button>
-          <Button variant="outline">
+          <Button variant="outline" onClick={handleDescargarReporte}>
             <Download className="mr-2 h-4 w-4" />
             Descargar Reporte
           </Button>

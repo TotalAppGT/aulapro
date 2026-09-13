@@ -23,6 +23,7 @@ import {
   ChevronDown,
   School,
   Bell,
+  FileBarChart,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -41,6 +42,9 @@ const adminNav: NavItemDef[] = [
   { to: "/app/tareas", label: "Tareas", icon: BookOpen },
   { to: "/app/asistencia", label: "Asistencia", icon: CalendarCheck },
   { to: "/app/anuncios", label: "Anuncios", icon: Megaphone },
+  { to: "/app/notificaciones", label: "Notificaciones", icon: Bell },
+  { to: "/app/usuarios", label: "Usuarios", icon: UserCircle },
+  { to: "/app/reportes", label: "Reportes", icon: FileBarChart },
   { to: "/app/configuracion", label: "Configuracion", icon: Settings },
 ]
 
@@ -54,7 +58,7 @@ const profesorNav: NavItemDef[] = [
 const padreNav: NavItemDef[] = [
   { to: "/app", label: "Dashboard", icon: LayoutDashboard },
   { to: "/app/hijos", label: "Mis Hijos", icon: Users },
-  { to: "/app/pagos", label: "Pagos", icon: DollarSign },
+  { to: "/app/mis-tareas", label: "Tareas", icon: BookOpen },
   { to: "/app/mensajes", label: "Mensajes", icon: MessageSquare },
 ]
 
@@ -81,18 +85,17 @@ function getNavForRole(role: Role): NavItemDef[] {
 }
 
 export default function DashboardLayout() {
-  const { user, isAuthenticated, logout } = useAuthStore()
+  const { user, logout } = useAuthStore()
   const navigate = useNavigate()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
 
-  if (!isAuthenticated) {
-    navigate("/login", { replace: true })
+  if (!user) {
     return null
   }
 
-  const role = user!.rol
+  const role = user.rol
   const navItems = getNavForRole(role)
 
   const handleLogout = () => {

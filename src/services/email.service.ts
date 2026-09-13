@@ -50,6 +50,79 @@ export async function sendWelcomeEmail(to: string, nombreColegio: string, nombre
   }
 }
 
+export async function sendNotificationEmail(to: string, titulo: string, mensaje: string) {
+  const resend = getResend();
+  if (!resend) {
+    console.warn('[Email] RESEND_API_KEY no configurada, se omite envio a', to);
+    return;
+  }
+  try {
+    await resend.emails.send({
+      from: RESEND_FROM_EMAIL,
+      to,
+      subject: titulo,
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#111827">
+          <div style="background:#059669;padding:20px;border-radius:12px 12px 0 0;text-align:center">
+            <h1 style="color:#fff;margin:0;font-size:20px">${titulo}</h1>
+          </div>
+          <div style="border:1px solid #e5e7eb;border-top:none;padding:28px;border-radius:0 0 12px 12px">
+            <p style="color:#374151;line-height:1.6;white-space:pre-wrap">${mensaje}</p>
+            <p style="color:#6b7280;font-size:13px;margin-top:24px">AulaPro - Gestion escolar inteligente.</p>
+          </div>
+        </div>
+      `,
+    });
+    console.log(`[Email] Notificacion enviada a ${to}`);
+  } catch (err) {
+    console.error('[Email] sendNotificationEmail failed:', err);
+  }
+}
+
+export async function sendAbsenceEmail(
+  to: string,
+  alumnoNombre: string,
+  fecha: string,
+  colegioNombre: string,
+  gradoNombre?: string,
+  materiaNombre?: string,
+) {
+  const resend = getResend();
+  if (!resend) {
+    console.warn('[Email] RESEND_API_KEY no configurada, se omite aviso de ausencia a', to);
+    return;
+  }
+  try {
+    await resend.emails.send({
+      from: RESEND_FROM_EMAIL,
+      to,
+      subject: `Aviso de ausencia - ${alumnoNombre}`,
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#111827">
+          <div style="background:#dc2626;padding:20px;border-radius:12px 12px 0 0;text-align:center">
+            <h1 style="color:#fff;margin:0;font-size:20px">Aviso de Ausencia</h1>
+          </div>
+          <div style="border:1px solid #e5e7eb;border-top:none;padding:28px;border-radius:0 0 12px 12px">
+            <p style="color:#374151;line-height:1.6">
+              Le informamos que el alumno <strong>${alumnoNombre}</strong> fue registrado como
+              <strong>ausente</strong> el dia <strong>${fecha}</strong>.
+            </p>
+            ${gradoNombre ? `<p style="color:#374151;line-height:1.6">Grado: <strong>${gradoNombre}</strong></p>` : ''}
+            ${materiaNombre ? `<p style="color:#374151;line-height:1.6">Materia: <strong>${materiaNombre}</strong></p>` : ''}
+            <p style="color:#374151;line-height:1.6">
+              Si la ausencia fue justificada, por favor comuniquelo al colegio.
+            </p>
+            <p style="color:#6b7280;font-size:13px;margin-top:24px">${colegioNombre} - AulaPro</p>
+          </div>
+        </div>
+      `,
+    });
+    console.log(`[Email] Aviso de ausencia enviado a ${to}`);
+  } catch (err) {
+    console.error('[Email] sendAbsenceEmail failed:', err);
+  }
+}
+
 export async function sendPaymentConfirmationEmail(to: string, alumnoNombre: string, mes: string, monto: number, colegioNombre: string) {
   const resend = getResend();
   if (!resend) {

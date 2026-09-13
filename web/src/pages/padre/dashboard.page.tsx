@@ -1,4 +1,6 @@
 import { useState } from "react"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useNavigate } from "react-router-dom"
 import {
   Users,
   DollarSign,
@@ -9,162 +11,78 @@ import {
   AlertCircle,
   CheckCircle2,
   Star,
-  Calendar,
   Send,
   GraduationCap,
+  Loader2,
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useAuthStore } from "@/stores/auth.store"
+import { apiGet, apiPost } from "@/lib/api"
 import { formatCurrency, formatDateShort } from "@/lib/utils"
 
-interface HijoInfo {
+interface Alumno {
   id: string
   nombre: string
-  grado: string
-  gradoNombre: string
-  avatar?: string
+  apellido: string | null
+  codigo: string
+  grado: { nombre: string } | null
+  responsableId: string | null
 }
 
-interface NotaResumen {
-  materia: string
+interface NotaMateria {
+  materia: { id: string; nombre: string }
   promedio: number
 }
 
-interface TareaResumen {
+interface Entrega {
+  id: string
+  estado: string
+  nota: number | null
+}
+
+interface Tarea {
   id: string
   titulo: string
   materia: string
   fechaEntrega: string
-  estado: "pendiente" | "entregada" | "vencida"
+  entrega: Entrega | null
 }
 
-interface PagoStatus {
+interface Mensualidad {
+  id: string
   mes: string
   monto: number
-  estado: "pagado" | "pendiente" | "vencido"
-  fechaLimite: string
+  estado: string
+  fechaPago: string | null
+  fechaVencimiento: string | null
 }
 
-interface AnuncioItem {
+interface Anuncio {
   id: string
   titulo: string
   contenido: string
-  fecha: string
+  createdAt: string
 }
 
-const mockHijos: HijoInfo[] = [
-  {
-    id: "h1",
-    nombre: "Maria Garcia",
-    grado: "3ro Basico",
-    gradoNombre: "3ro Basico A",
-  },
-  {
-    id: "h2",
-    nombre: "Carlos Garcia",
-    grado: "5to Primaria",
-    gradoNombre: "5to Primaria B",
-  },
-]
-
-const mockNotasPorHijo: Record<string, NotaResumen[]> = {
-  h1: [
-    { materia: "Matematicas", promedio: 85 },
-    { materia: "Ciencias Naturales", promedio: 78 },
-    { materia: "Idioma Espanol", promedio: 92 },
-    { materia: "Estudios Sociales", promedio: 88 },
-    { materia: "Ingles", promedio: 90 },
-  ],
-  h2: [
-    { materia: "Matematicas", promedio: 95 },
-    { materia: "Ciencias Naturales", promedio: 88 },
-    { materia: "Idioma Espanol", promedio: 82 },
-    { materia: "Estudios Sociales", promedio: 91 },
-  ],
+function currentBimestre(): number {
+  const m = new Date().getMonth() + 1
+  return m <= 3 ? 1 : m <= 6 ? 2 : m <= 9 ? 3 : 4
 }
 
-const mockTareasPorHijo: Record<string, TareaResumen[]> = {
-  h1: [
-    {
-      id: "t1",
-      titulo: "Ejercicios de algebra",
-      materia: "Matematicas",
-      fechaEntrega: new Date(Date.now() + 86400000 * 2).toISOString(),
-      estado: "pendiente",
-    },
-    {
-      id: "t2",
-      titulo: "Reporte de laboratorio",
-      materia: "Ciencias Naturales",
-      fechaEntrega: new Date(Date.now() - 86400000).toISOString(),
-      estado: "vencida",
-    },
-    {
-      id: "t3",
-      titulo: "Ensayo de historia",
-      materia: "Estudios Sociales",
-      fechaEntrega: new Date(Date.now() + 86400000 * 4).toISOString(),
-      estado: "pendiente",
-    },
-  ],
-  h2: [
-    {
-      id: "t4",
-      titulo: "Tablas de multiplicar",
-      materia: "Matematicas",
-      fechaEntrega: new Date(Date.now() + 86400000).toISOString(),
-      estado: "pendiente",
-    },
-    {
-      id: "t5",
-      titulo: "Lectura comprensiva",
-      materia: "Idioma Espanol",
-      fechaEntrega: new Date(Date.now() + 86400000 * 3).toISOString(),
-      estado: "pendiente",
-    },
-  ],
+function mesLabel(mes: string): string {
+  const [y, m] = mes.split("-").map(Number)
+  const fecha = new Date(y, m - 1, 1)
+  const label = fecha.toLocaleDateString("es-GT", { month: "long", year: "numeric" })
+  return label.charAt(0).toUpperCase() + label.slice(1)
 }
 
-const mockPagosPorHijo: Record<string, PagoStatus> = {
-  h1: {
-    mes: "Agosto 2026",
-    monto: 225,
-    estado: "pendiente",
-    fechaLimite: new Date(new Date().getFullYear(), new Date().getMonth(), 5).toISOString(),
-  },
-  h2: {
-    mes: "Agosto 2026",
-    monto: 225,
-    estado: "pagado",
-    fechaLimite: new Date(new Date().getFullYear(), new Date().getMonth(), 5).toISOString(),
-  },
+function estadoTarea(t: Tarea): "pendiente" | "entregada" | "vencida" {
+  if (t.entrega && t.entrega.estado !== "PENDIENTE") return "entregada"
+  if (new Date(t.fechaEntrega) < new Date()) return "vencida"
+  return "pendiente"
 }
-
-const mockAnuncios: AnuncioItem[] = [
-  {
-    id: "1",
-    titulo: "Reunion de padres de familia",
-    contenido:
-      "Se les recuerda que el proximo viernes habra reunion general de padres de familia a las 14:00 horas.",
-    fecha: new Date(Date.now() - 86400000 * 2).toISOString(),
-  },
-  {
-    id: "2",
-    titulo: "Suspension de clases",
-    contenido:
-      "El dia lunes no habra clases por capacitacion docente programada por el MINEDUC.",
-    fecha: new Date(Date.now() - 86400000).toISOString(),
-  },
-  {
-    id: "3",
-    titulo: "Feria de ciencias",
-    contenido:
-      "Inscripciones abiertas para la feria de ciencias anual. Apoye a su hijo(a) a participar.",
-    fecha: new Date(Date.now() - 86400000 * 4).toISOString(),
-  },
-]
 
 function getNotaColor(nota: number): string {
   if (nota >= 90) return "text-green-600"
@@ -174,13 +92,81 @@ function getNotaColor(nota: number): string {
 
 export default function PadreDashboardPage() {
   const user = useAuthStore((s) => s.user)
-  const [activeHijo, setActiveHijo] = useState<string>(mockHijos[0].id)
+  const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const [activeHijo, setActiveHijo] = useState<string>("")
+  const [mensajeTexto, setMensajeTexto] = useState("")
 
-  const hijoActual = mockHijos.find((h) => h.id === activeHijo)!
-  const notas = mockNotasPorHijo[activeHijo] ?? []
-  const tareas = mockTareasPorHijo[activeHijo] ?? []
-  const pago = mockPagosPorHijo[activeHijo]
-  const tareasPendientes = tareas.filter((t) => t.estado !== "entregada").length
+  const { data: hijos, isLoading: cargandoHijos } = useQuery<Alumno[]>({
+    queryKey: ["hijos", user?.colegioId],
+    queryFn: () => apiGet<Alumno[]>(`/${user?.colegioId}/alumnos`),
+    enabled: !!user?.colegioId,
+    select: (data) => data.filter((a) => a.responsableId === user?.id),
+  })
+
+  const hijoActual = hijos?.find((h) => h.id === activeHijo) ?? hijos?.[0] ?? null
+  const hijoId = hijoActual?.id ?? ""
+
+  const { data: notas } = useQuery<{ materias: NotaMateria[] }>({
+    queryKey: ["notas-padre", user?.colegioId, hijoId],
+    queryFn: () =>
+      apiGet(`/${user?.colegioId}/calificaciones/alumno/${hijoId}/${currentBimestre()}`),
+    enabled: !!user?.colegioId && !!hijoId,
+  })
+
+  const { data: tareas } = useQuery<Tarea[]>({
+    queryKey: ["tareas-padre", user?.colegioId, hijoId],
+    queryFn: () => apiGet<Tarea[]>(`/${user?.colegioId}/tareas/alumno/${hijoId}`),
+    enabled: !!user?.colegioId && !!hijoId,
+  })
+
+  const { data: pagos } = useQuery<{ mensualidades: Mensualidad[] }>({
+    queryKey: ["pagos-padre", user?.colegioId, hijoId],
+    queryFn: () => apiGet(`/${user?.colegioId}/pagos/alumno/${hijoId}`),
+    enabled: !!user?.colegioId && !!hijoId,
+  })
+
+  const { data: anuncios } = useQuery<Anuncio[]>({
+    queryKey: ["anuncios", user?.colegioId],
+    queryFn: () => apiGet<Anuncio[]>(`/${user?.colegioId}/anuncios`),
+    enabled: !!user?.colegioId,
+  })
+
+  const mensajeMutation = useMutation({
+    mutationFn: () => apiPost(`/${user?.colegioId}/mensajes`, { contenido: mensajeTexto }),
+    onSuccess: () => {
+      setMensajeTexto("")
+      queryClient.invalidateQueries({ queryKey: ["mensajes"] })
+    },
+  })
+
+  const notasMaterias = notas?.materias ?? []
+  const tareasHijo = tareas ?? []
+  const tareasPendientes = tareasHijo.filter((t) => estadoTarea(t) !== "entregada").length
+
+  const mensualidades = pagos?.mensualidades ?? []
+  const pagoPendiente = mensualidades.find((m) => m.estado !== "PAGADO")
+
+  if (cargandoHijos) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-300" />
+      </div>
+    )
+  }
+
+  if (!hijoActual) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+          <Users className="h-12 w-12 text-gray-300" />
+          <p className="mt-3 text-sm text-gray-500">
+            No tienes hijos vinculados a esta cuenta
+          </p>
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -197,20 +183,18 @@ export default function PadreDashboardPage() {
         <CardContent className="p-4">
           <div className="flex items-center gap-1 overflow-x-auto">
             <Users className="h-4 w-4 text-gray-400 flex-shrink-0" />
-            <span className="mr-3 text-sm font-medium text-gray-700">
-              Mis Hijos:
-            </span>
-            {mockHijos.map((hijo) => (
+            <span className="mr-3 text-sm font-medium text-gray-700">Mis Hijos:</span>
+            {hijos?.map((hijo) => (
               <button
                 key={hijo.id}
                 onClick={() => setActiveHijo(hijo.id)}
                 className={`flex-shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                  activeHijo === hijo.id
+                  hijo.id === hijoActual.id
                     ? "bg-primary text-white"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                 }`}
               >
-                {hijo.nombre}
+                {hijo.nombre} {hijo.apellido}
               </button>
             ))}
           </div>
@@ -229,8 +213,9 @@ export default function PadreDashboardPage() {
                   <div>
                     <p className="text-xs font-medium text-gray-500">Grado</p>
                     <p className="text-sm font-semibold text-gray-900">
-                      {hijoActual.gradoNombre}
+                      {hijoActual.grado?.nombre || "Sin grado"}
                     </p>
+                    <p className="text-xs text-gray-400">{hijoActual.codigo}</p>
                   </div>
                 </div>
               </CardContent>
@@ -239,26 +224,16 @@ export default function PadreDashboardPage() {
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div
-                    className={`rounded-lg p-2 ${
-                      tareasPendientes > 0 ? "bg-yellow-50" : "bg-green-50"
-                    }`}
-                  >
+                  <div className={`rounded-lg p-2 ${tareasPendientes > 0 ? "bg-yellow-50" : "bg-green-50"}`}>
                     <BookOpen
                       className={`h-5 w-5 ${
-                        tareasPendientes > 0
-                          ? "text-yellow-600"
-                          : "text-green-600"
+                        tareasPendientes > 0 ? "text-yellow-600" : "text-green-600"
                       }`}
                     />
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-gray-500">
-                      Tareas Pendientes
-                    </p>
-                    <p className="text-sm font-semibold text-gray-900">
-                      {tareasPendientes}
-                    </p>
+                    <p className="text-xs font-medium text-gray-500">Tareas Pendientes</p>
+                    <p className="text-sm font-semibold text-gray-900">{tareasPendientes}</p>
                   </div>
                 </div>
               </CardContent>
@@ -269,29 +244,19 @@ export default function PadreDashboardPage() {
                 <div className="flex items-center gap-3">
                   <div
                     className={`rounded-lg p-2 ${
-                      pago.estado === "pagado"
-                        ? "bg-green-50"
-                        : pago.estado === "vencido"
-                        ? "bg-red-50"
-                        : "bg-yellow-50"
+                      !pagoPendiente ? "bg-green-50" : "bg-yellow-50"
                     }`}
                   >
                     <DollarSign
                       className={`h-5 w-5 ${
-                        pago.estado === "pagado"
-                          ? "text-green-600"
-                          : pago.estado === "vencido"
-                          ? "text-red-600"
-                          : "text-yellow-600"
+                        !pagoPendiente ? "text-green-600" : "text-yellow-600"
                       }`}
                     />
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-gray-500">
-                      Pago {pago.mes}
-                    </p>
+                    <p className="text-xs font-medium text-gray-500">Pago Pendiente</p>
                     <p className="text-sm font-semibold text-gray-900">
-                      {formatCurrency(pago.monto)}
+                      {pagoPendiente ? formatCurrency(pagoPendiente.monto) : "Al dia"}
                     </p>
                   </div>
                 </div>
@@ -306,41 +271,38 @@ export default function PadreDashboardPage() {
                 <CardTitle>Resumen de Calificaciones</CardTitle>
               </div>
               <CardDescription>
-                Promedios actuales de {hijoActual.nombre}
+                Promedios de {hijoActual.nombre} {hijoActual.apellido} (bimestre{" "}
+                {currentBimestre()})
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {notas.length === 0 ? (
-                <p className="text-sm text-gray-500">No hay notas registradas</p>
+              {notasMaterias.length === 0 ? (
+                <p className="text-sm text-gray-500">No hay notas registradas aun</p>
               ) : (
                 <div className="space-y-3">
-                  {notas.map((nota) => (
+                  {notasMaterias.map((n) => (
                     <div
-                      key={nota.materia}
+                      key={n.materia.id}
                       className="flex items-center justify-between rounded-md border border-gray-100 p-3"
                     >
                       <span className="text-sm font-medium text-gray-900">
-                        {nota.materia}
+                        {n.materia.nombre}
                       </span>
                       <div className="flex items-center gap-3">
                         <div className="h-2 w-32 rounded-full bg-gray-100">
                           <div
                             className={`h-2 rounded-full ${
-                              nota.promedio >= 90
+                              n.promedio >= 90
                                 ? "bg-green-500"
-                                : nota.promedio >= 70
+                                : n.promedio >= 70
                                 ? "bg-yellow-500"
                                 : "bg-red-500"
                             }`}
-                            style={{ width: `${Math.min(nota.promedio, 100)}%` }}
+                            style={{ width: `${Math.min(n.promedio, 100)}%` }}
                           />
                         </div>
-                        <span
-                          className={`text-sm font-bold ${getNotaColor(
-                            nota.promedio
-                          )}`}
-                        >
-                          {nota.promedio}
+                        <span className={`text-sm font-bold ${getNotaColor(n.promedio)}`}>
+                          {n.promedio}
                         </span>
                       </div>
                     </div>
@@ -354,52 +316,53 @@ export default function PadreDashboardPage() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <BookOpen className="h-5 w-5 text-primary" />
-                <CardTitle>Tareas de {hijoActual.nombre}</CardTitle>
+                <CardTitle>
+                  Tareas de {hijoActual.nombre} {hijoActual.apellido}
+                </CardTitle>
               </div>
             </CardHeader>
             <CardContent>
-              {tareas.length === 0 ? (
-                <p className="text-sm text-gray-500">
-                  No hay tareas pendientes
-                </p>
+              {tareasHijo.length === 0 ? (
+                <p className="text-sm text-gray-500">No hay tareas asignadas</p>
               ) : (
                 <div className="space-y-3">
-                  {tareas.map((tarea) => (
-                    <div
-                      key={tarea.id}
-                      className={`flex items-center justify-between rounded-md border p-3 ${
-                        tarea.estado === "vencida"
-                          ? "border-red-200 bg-red-50"
-                          : "border-gray-100"
-                      }`}
-                    >
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">
-                          {tarea.titulo}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {tarea.materia} &middot; Entrega:{" "}
-                          {formatDateShort(tarea.fechaEntrega)}
-                        </p>
-                      </div>
-                      <Badge
-                        variant={
-                          tarea.estado === "entregada"
-                            ? "success"
-                            : tarea.estado === "vencida"
-                            ? "destructive"
-                            : "warning"
-                        }
-                        className="text-[10px]"
+                  {tareasHijo.slice(0, 6).map((tarea) => {
+                    const estado = estadoTarea(tarea)
+                    return (
+                      <div
+                        key={tarea.id}
+                        className={`flex items-center justify-between rounded-md border p-3 ${
+                          estado === "vencida" ? "border-red-200 bg-red-50" : "border-gray-100"
+                        }`}
                       >
-                        {tarea.estado === "pendiente"
-                          ? "Pendiente"
-                          : tarea.estado === "vencida"
-                          ? "Vencida"
-                          : "Entregada"}
-                      </Badge>
-                    </div>
-                  ))}
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{tarea.titulo}</p>
+                          <p className="text-xs text-gray-500">
+                            {tarea.materia} &middot; Entrega: {formatDateShort(tarea.fechaEntrega)}
+                            {tarea.entrega?.nota != null && (
+                              <span className="ml-2 text-green-700">Nota: {tarea.entrega.nota}</span>
+                            )}
+                          </p>
+                        </div>
+                        <Badge
+                          variant={
+                            estado === "entregada"
+                              ? "success"
+                              : estado === "vencida"
+                              ? "destructive"
+                              : "warning"
+                          }
+                          className="text-[10px]"
+                        >
+                          {estado === "pendiente"
+                            ? "Pendiente"
+                            : estado === "vencida"
+                            ? "Vencida"
+                            : "Entregada"}
+                        </Badge>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </CardContent>
@@ -411,56 +374,50 @@ export default function PadreDashboardPage() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <CreditCard className="h-5 w-5 text-primary" />
-                <CardTitle className="text-lg">Pagos Pendientes</CardTitle>
+                <CardTitle className="text-lg">Pagos</CardTitle>
               </div>
             </CardHeader>
             <CardContent>
-              <div
-                className={`rounded-lg border p-4 ${
-                  pago.estado === "pagado"
-                    ? "border-green-200 bg-green-50"
-                    : pago.estado === "vencido"
-                    ? "border-red-200 bg-red-50"
-                    : "border-yellow-200 bg-yellow-50"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">
-                      {hijoActual.nombre}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {pago.mes} &middot; {formatCurrency(pago.monto)}
-                    </p>
+              {mensualidades.length === 0 ? (
+                <p className="text-sm text-gray-500">No hay cobros registrados</p>
+              ) : pagoPendiente ? (
+                <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {hijoActual.nombre} {hijoActual.apellido}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {mesLabel(pagoPendiente.mes)} &middot;{" "}
+                        {formatCurrency(pagoPendiente.monto)}
+                      </p>
+                    </div>
+                    <AlertCircle className="h-6 w-6 text-yellow-500" />
                   </div>
-                  {pago.estado === "pagado" ? (
-                    <CheckCircle2 className="h-6 w-6 text-green-500" />
-                  ) : (
-                    <AlertCircle
-                      className={`h-6 w-6 ${
-                        pago.estado === "vencido"
-                          ? "text-red-500"
-                          : "text-yellow-500"
-                      }`}
-                    />
-                  )}
-                </div>
-                <div className="mt-2 flex items-center gap-2 text-xs">
-                  <Calendar className="h-3 w-3 text-gray-400" />
-                  <span className="text-gray-500">
-                    {pago.estado === "pagado"
-                      ? "Pagado"
-                      : `Limite: ${formatDateShort(pago.fechaLimite)}`}
-                  </span>
-                </div>
-
-                {pago.estado !== "pagado" && (
-                  <Button className="mt-3 w-full" size="sm">
+                  <Button
+                    className="mt-3 w-full"
+                    size="sm"
+                    onClick={() =>
+                      navigate(`/app/pagar?alumnoId=${hijoActual.id}&mes=${pagoPendiente.mes}`)
+                    }
+                  >
                     <DollarSign className="mr-1 h-4 w-4" />
                     Pagar ahora
                   </Button>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle2 className="h-6 w-6 text-green-500" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Todo al dia</p>
+                      <p className="text-xs text-gray-500">
+                        {hijoActual.nombre} {hijoActual.apellido} no tiene pagos pendientes
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -473,22 +430,18 @@ export default function PadreDashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {mockAnuncios.map((anuncio) => (
-                  <div
-                    key={anuncio.id}
-                    className="rounded-md border border-gray-100 p-3"
-                  >
-                    <p className="text-sm font-medium text-gray-900">
-                      {anuncio.titulo}
-                    </p>
-                    <p className="mt-1 text-xs text-gray-600 line-clamp-2">
-                      {anuncio.contenido}
-                    </p>
+                {(anuncios ?? []).slice(0, 4).map((anuncio) => (
+                  <div key={anuncio.id} className="rounded-md border border-gray-100 p-3">
+                    <p className="text-sm font-medium text-gray-900">{anuncio.titulo}</p>
+                    <p className="mt-1 text-xs text-gray-600 line-clamp-2">{anuncio.contenido}</p>
                     <p className="mt-2 text-xs text-gray-400">
-                      {formatDateShort(anuncio.fecha)}
+                      {formatDateShort(anuncio.createdAt)}
                     </p>
                   </div>
                 ))}
+                {(anuncios ?? []).length === 0 && (
+                  <p className="text-sm text-gray-500">No hay anuncios recientes</p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -499,18 +452,27 @@ export default function PadreDashboardPage() {
                 <MessageSquare className="h-5 w-5 text-primary" />
                 <CardTitle className="text-lg">Mensaje Rapido</CardTitle>
               </div>
-              <CardDescription>
-                Contacta al profesor de {hijoActual.nombre}
-              </CardDescription>
+              <CardDescription>Escribele a la direccion del colegio</CardDescription>
             </CardHeader>
             <CardContent>
               <textarea
                 className="w-full rounded-md border border-gray-300 p-3 text-sm text-gray-700 placeholder-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 rows={3}
                 placeholder="Escribe tu mensaje..."
+                value={mensajeTexto}
+                onChange={(e) => setMensajeTexto(e.target.value)}
               />
-              <Button className="mt-3 w-full" size="sm">
-                <Send className="mr-1 h-3 w-3" />
+              <Button
+                className="mt-3 w-full"
+                size="sm"
+                disabled={!mensajeTexto.trim() || mensajeMutation.isPending}
+                onClick={() => mensajeMutation.mutate()}
+              >
+                {mensajeMutation.isPending ? (
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                ) : (
+                  <Send className="mr-1 h-3 w-3" />
+                )}
                 Enviar Mensaje
               </Button>
             </CardContent>

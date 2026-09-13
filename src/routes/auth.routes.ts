@@ -124,7 +124,7 @@ authRoutes.post('/firebase', async (req: Request, res: Response, next: NextFunct
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      res.status(400).json({ error: 'Datos invÃ¡lidos', details: err.errors });
+      res.status(400).json({ error: 'Datos inválidos', details: err.errors });
       return;
     }
     next(err);
@@ -137,7 +137,7 @@ authRoutes.post('/registro', async (req: Request, res: Response, next: NextFunct
 
     const existingUser = await prisma.usuario.findUnique({ where: { email: body.email } });
     if (existingUser) {
-      res.status(409).json({ error: 'El email ya estÃ¡ registrado' });
+      res.status(409).json({ error: 'El email ya está registrado' });
       return;
     }
 
@@ -191,7 +191,7 @@ authRoutes.post('/registro', async (req: Request, res: Response, next: NextFunct
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      res.status(400).json({ error: 'Datos invÃ¡lidos', details: err.errors });
+      res.status(400).json({ error: 'Datos inválidos', details: err.errors });
       return;
     }
     next(err);
@@ -208,13 +208,13 @@ authRoutes.post('/login', async (req: Request, res: Response, next: NextFunction
     });
 
     if (!usuario || !usuario.activo) {
-      res.status(401).json({ error: 'Credenciales invÃ¡lidas' });
+      res.status(401).json({ error: 'Credenciales inválidas' });
       return;
     }
 
     const passwordValid = await bcrypt.compare(body.password, usuario.passwordHash);
     if (!passwordValid) {
-      res.status(401).json({ error: 'Credenciales invÃ¡lidas' });
+      res.status(401).json({ error: 'Credenciales inválidas' });
       return;
     }
 
@@ -240,7 +240,7 @@ authRoutes.post('/login', async (req: Request, res: Response, next: NextFunction
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      res.status(400).json({ error: 'Datos invÃ¡lidos', details: err.errors });
+      res.status(400).json({ error: 'Datos inválidos', details: err.errors });
       return;
     }
     next(err);

@@ -7,6 +7,7 @@ import { authMiddleware } from '../middleware/auth';
 import { tenantMiddleware } from '../middleware/tenant';
 import { requireRole } from '../lib/roles';
 import { createCheckout } from '../services/recurrente.service';
+import { sendPaymentReminder } from '../services/whatsapp.service';
 
 export const pagoRoutes = Router();
 
@@ -228,6 +229,178 @@ pagoRoutes.get(
           monto: m.monto,
           estado: m.estado,
           fechaPago: m.fechaPago,
+        })),
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+pagoRoutes.get(
+  '/',
+  requireRole('ADMIN_COLEGIO', 'PROFESOR'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const colegioId = req.user!.colegioId;
+      const mes = (req.query.mes as string) || (() => {
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      })();
+
+      const mensualidades = await prisma.mensualidad.findMany({
+        where: { colegioId, mes },
+        include: {
+          alumno: {
+            select: {
+              id: true,
+              nombre: true,
+              apellido: true,
+              grado: { select: { nombre: true } },
+            },
+          },
+        },
+        orderBy: { alumno: { nombre: 'asc' } },
+      });
+
+      const now = new Date();
+      const diaVencimiento = (() => {
+        const fecha = new Date(now.getFullYear(), now.getMonth(), 10);
+        return fecha.toISOString();
+      })();
+
+      const cobros = mensualidades.map((m) => ({
+        id: m.id,
+        alumnoId: m.alumnoId,
+        alumnoNombre: `${m.alumno.nombre} ${m.alumno.apellido || ''}`.trim(),
+        gradoNombre: m.alumno.grado?.nombre || '-',
+        monto: m.monto,
+        estado:
+          m.estado === 'PAGADO'
+            ? 'pagado'
+            : m.estado === 'VENCIDO'
+            ? 'vencido'
+            : 'pendiente',
+        fechaPago: m.fechaPago?.toISOString() || null,
+        fechaVencimiento: diaVencimiento,
+      }));
+
+      const resumen = {
+        totalRecaudado: mensualidades
+          .filter((m) => m.estado === 'PAGADO')
+          .reduce((sum: number, m) => sum + m.monto, 0),
+        totalPendiente: mensualidades
+          .filter((m) => m.estado !== 'PAGADO')
+          .reduce((sum: number, m) => sum + m.monto, 0),
+        porcentajeCompletado:
+          mensualidades.length === 0
+            ? 0
+            : Math.round(
+                (mensualidades.filter((m) => m.estado === 'PAGADO').length /
+                  mensualidades.length) *
+                  1000
+              ) / 10,
+        comisionDelMes: 0,
+        total: mensualidades.length,
+      };
+
+      res.json({ mes, resumen, cobros });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+pagoRoutes.post(
+  '/:cobroId/recordatorio',
+  requireRole('ADMIN_COLEGIO'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { cobroId } = req.params;
+      const colegioId = req.user!.colegioId;
+
+      const mensualidad = await prisma.mensualidad.findFirst({
+        where: { id: cobroId, colegioId },
+        include: {
+          alumno: {
+            include: {
+              responsable: { select: { telefono: true } },
+            },
+          },
+        },
+      });
+
+      if (!mensualidad) {
+        res.status(404).json({ error: 'Cobro no encontrado' });
+        return;
+      }
+
+      if (mensualidad.estado === 'PAGADO') {
+        res.status(400).json({ error: 'Este cobro ya fue pagado' });
+        return;
+      }
+
+      const telefono = mensualidad.alumno.responsable?.telefono;
+      if (!telefono) {
+        res.status(400).json({ error: 'El responsable de este alumno no tiene teléfono registrado' });
+        return;
+      }
+
+      const appUrl = (await import('../config')).APP_URL;
+      const pagoUrl = `${appUrl}/app/pagar?alumnoId=${mensualidad.alumnoId}&mes=${mensualidad.mes}`;
+
+      try {
+        const resultado = await sendPaymentReminder(
+          telefono,
+          `${mensualidad.alumno.nombre} ${mensualidad.alumno.apellido || ''}`.trim(),
+          mensualidad.mes,
+          mensualidad.monto,
+          pagoUrl
+        );
+        res.json({ message: 'Recordatorio enviado por WhatsApp', resultado });
+      } catch (err) {
+        res.status(502).json({ error: 'No se pudo enviar el recordatorio de WhatsApp. Verifica el token y número.' });
+      }
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+pagoRoutes.get(
+  '/alumno/:alumnoId',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { alumnoId } = req.params;
+      const colegioId = req.user!.colegioId;
+
+      const alumno = await prisma.alumno.findFirst({
+        where: { id: alumnoId, colegioId, activo: true },
+        select: { id: true, nombre: true, apellido: true },
+      });
+      if (!alumno) {
+        res.status(404).json({ error: 'Alumno no encontrado' });
+        return;
+      }
+
+      const mensualidades = await prisma.mensualidad.findMany({
+        where: { colegioId, alumnoId },
+        orderBy: { mes: 'desc' },
+        take: 12,
+      });
+
+      const now = new Date();
+      const diaVencimiento = new Date(now.getFullYear(), now.getMonth(), 10).toISOString();
+
+      res.json({
+        alumno: `${alumno.nombre} ${alumno.apellido || ''}`.trim(),
+        mensualidades: mensualidades.map((m) => ({
+          id: m.id,
+          mes: m.mes,
+          monto: m.monto,
+          estado: m.estado,
+          fechaPago: m.fechaPago?.toISOString() || null,
+          fechaVencimiento: diaVencimiento,
         })),
       });
     } catch (err) {

@@ -10,15 +10,16 @@ export const RECURRENTE_BASE_URL = process.env.RECURRENTE_BASE_URL || 'https://a
 export const RECURRENTE_SECRET_KEY = process.env.RECURRENTE_SECRET_KEY || '';
 export const RECURRENTE_ACCOUNT_ID = process.env.RECURRENTE_ACCOUNT_ID || '';
 
-export const WHATSAPP_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN || '';
+export const WHATSAPP_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN || '';
 export const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_ID || '';
+export const WHATSAPP_WEBHOOK_VERIFY_TOKEN = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || process.env.WHATSAPP_VERIFY_TOKEN || 'aulapro-verify-2026';
 
 export const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || '';
 export const FIREBASE_CLIENT_EMAIL = process.env.FIREBASE_CLIENT_EMAIL || '';
 export const FIREBASE_PRIVATE_KEY = (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
 
 export const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
-export const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'AulaPro <no-reply@totalappgt.online>';
+export const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'ContaPro <no-reply@totalappgt.online>';
 
 export const R2_ENDPOINT = process.env.R2_ENDPOINT || '';
 export const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID || '';
@@ -53,7 +54,7 @@ const config = {
   whatsapp: {
     phoneId: WHATSAPP_PHONE_ID,
     accessToken: WHATSAPP_TOKEN,
-    apiVersion: 'v19.0' as const,
+    apiVersion: 'v22.0' as const,
   },
   r2: {
     endpoint: R2_ENDPOINT,

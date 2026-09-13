@@ -1,51 +1,55 @@
 import { useState } from "react"
-import { MessageSquare, Send, Loader2 } from "lucide-react"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { MessageSquare, Send, Loader2, Inbox } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { useAuthStore } from "@/stores/auth.store"
+import { apiGet, apiPost } from "@/lib/api"
+
+interface Interlocutor {
+  id: string
+  nombre: string
+  rol: string
+}
 
 interface Mensaje {
   id: string
-  de: string
-  rol: string
+  remitenteId: string
+  destinatarioId: string
   contenido: string
-  fecha: string
   leido: boolean
+  createdAt: string
+  remitente: Interlocutor
+  destinatario: Interlocutor
 }
 
-const mockConversacion: Mensaje[] = [
-  {
-    id: "1",
-    de: "Prof. Lopez",
-    rol: "Matematicas",
-    contenido:
-      "Buenas tardes, le informo que su hijo tiene pendiente la tarea de algebra para el viernes.",
-    fecha: new Date(Date.now() - 86400000).toISOString(),
-    leido: true,
-  },
-  {
-    id: "2",
-    de: "Direccion",
-    rol: "Administracion",
-    contenido:
-      "Se recuerda que la reunion de padres es el proximo viernes a las 14:00 horas.",
-    fecha: new Date(Date.now() - 86400000 * 2).toISOString(),
-    leido: true,
-  },
-]
+const ROL_LABEL: Record<string, string> = {
+  ADMIN_COLEGIO: "Administracion",
+  SUPERADMIN: "Plataforma",
+  PROFESOR: "Profesor",
+  PADRE: "Padre de familia",
+  ALUMNO: "Alumno",
+}
 
 export default function MensajesPage() {
+  const user = useAuthStore((s) => s.user)
+  const queryClient = useQueryClient()
   const [mensaje, setMensaje] = useState("")
-  const [enviado, setEnviado] = useState(false)
 
-  const handleSend = () => {
-    if (!mensaje.trim()) return
-    setEnviado(true)
-    setTimeout(() => {
-      setEnviado(false)
+  const { data: mensajes, isLoading } = useQuery<Mensaje[]>({
+    queryKey: ["mensajes", user?.colegioId],
+    queryFn: () => apiGet<Mensaje[]>(`/${user?.colegioId}/mensajes`),
+    enabled: !!user?.colegioId,
+  })
+
+  const sendMutation = useMutation({
+    mutationFn: () => apiPost(`/${user?.colegioId}/mensajes`, { contenido: mensaje }),
+    onSuccess: () => {
       setMensaje("")
-    }, 1200)
-  }
+      queryClient.invalidateQueries({ queryKey: ["mensajes"] })
+    },
+  })
 
   return (
     <div className="space-y-6">
@@ -57,37 +61,67 @@ export default function MensajesPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5 text-primary" />
+            <Inbox className="h-5 w-5 text-primary" />
             Bandeja de Entrada
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {mockConversacion.map((m) => (
-            <div
-              key={m.id}
-              className="mb-4 rounded-lg border border-gray-100 p-4"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-gray-900">{m.de}</p>
-                  <p className="text-xs text-gray-500">{m.rol}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="text-[10px]">
-                    {new Date(m.fecha).toLocaleDateString("es-GT")}
-                  </Badge>
-                  {m.leido ? (
-                    <Badge variant="outline" className="text-[10px]">
-                      Leido
-                    </Badge>
-                  ) : (
-                    <Badge className="text-[10px]">Nuevo</Badge>
-                  )}
-                </div>
-              </div>
-              <p className="mt-2 text-sm text-gray-600">{m.contenido}</p>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-gray-300" />
             </div>
-          ))}
+          ) : !mensajes || mensajes.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <MessageSquare className="h-10 w-10 text-gray-300" />
+              <p className="mt-3 text-sm text-gray-500">No hay mensajes aun</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {mensajes.map((m) => {
+                const recibido = m.remitenteId === user?.id ? false : true
+                const otro = recibido ? m.remitente : m.destinatario
+                return (
+                  <div
+                    key={m.id}
+                    className={`rounded-lg border p-4 ${
+                      recibido && !m.leido ? "border-primary bg-primary-50" : "border-gray-100"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-gray-900">
+                          {recibido ? "De: " : "Para: "}
+                          {otro.nombre}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {ROL_LABEL[otro.rol] ?? otro.rol}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-[10px]">
+                          {new Date(m.createdAt).toLocaleDateString("es-GT", {
+                            day: "numeric",
+                            month: "short",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </Badge>
+                        {recibido &&
+                          (m.leido ? (
+                            <Badge variant="outline" className="text-[10px]">
+                              Leido
+                            </Badge>
+                          ) : (
+                            <Badge className="text-[10px]">Nuevo</Badge>
+                          ))}
+                      </div>
+                    </div>
+                    <p className="mt-2 text-sm text-gray-600">{m.contenido}</p>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -99,13 +133,16 @@ export default function MensajesPage() {
           <textarea
             className="w-full rounded-md border border-gray-300 p-3 text-sm text-gray-700 placeholder-gray-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             rows={3}
-            placeholder="Escribe tu mensaje a la direccion o profesores..."
+            placeholder="Escribe tu mensaje a la direccion del colegio..."
             value={mensaje}
             onChange={(e) => setMensaje(e.target.value)}
           />
           <div className="mt-3 flex justify-end">
-            <Button onClick={handleSend} disabled={!mensaje.trim() || enviado}>
-              {enviado ? (
+            <Button
+              onClick={() => sendMutation.mutate()}
+              disabled={!mensaje.trim() || sendMutation.isPending}
+            >
+              {sendMutation.isPending ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <Send className="mr-2 h-4 w-4" />

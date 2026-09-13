@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
-import { sendMessage } from '../../services/whatsapp.service';
+import { sendTemplateMessage } from '../../services/whatsapp.service';
 import { sendPaymentConfirmationEmail } from '../../services/email.service';
 
 export const webhookRoutes = Router();
@@ -100,8 +100,8 @@ webhookRoutes.post('/recurrente', async (req: Request, res: Response, next: Next
         const nombreCompleto = `${alumno.nombre} ${alumno.apellido || ''}`.trim();
 
         if (colegio.usuarios[0]?.telefono) {
-          const message = `✅ Pago recibido - ${colegio.nombre}\n\nAlumno: ${nombreCompleto}\nMes: ${mes}\nEstado: Pagado\n\nGracias por tu pago.`;
-          sendMessage(colegio.usuarios[0].telefono, message).catch((err: Error) => {
+          const mensaje = `Pago recibido - ${colegio.nombre}. Mes: ${mes}. Estado: Pagado. Gracias por tu pago.`;
+          sendTemplateMessage(colegio.usuarios[0].telefono, nombreCompleto, mensaje).catch((err: Error) => {
             console.error('[WhatsApp] Notification failed:', err);
           });
         }

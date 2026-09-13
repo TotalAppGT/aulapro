@@ -27,6 +27,7 @@ import MensajesPage from "@/pages/padre/mensajes.page"
 import NotasPage from "@/pages/alumno/notas.page"
 import HorarioPage from "@/pages/alumno/horario.page"
 import PagarPage from "@/pages/pagar/pagar.page"
+import CursoDetallePage from "@/pages/curso/curso-detalle.page"
 
 function RootRoute() {
   const user = useAuthStore((s) => s.user)
@@ -178,8 +179,16 @@ export default function App() {
         <Route
           path="cursos"
           element={
-            <RoleRoute allowed={["PROFESOR"]}>
+            <RoleRoute allowed={["ADMIN_COLEGIO", "PROFESOR", "ALUMNO"]}>
               <CursosPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="curso/:cursoId"
+          element={
+            <RoleRoute allowed={["ADMIN_COLEGIO", "PROFESOR", "ALUMNO"]}>
+              <CursoDetallePage />
             </RoleRoute>
           }
         />

@@ -37,6 +37,7 @@ const adminNav: NavItemDef[] = [
   { to: "/app", label: "Dashboard", icon: LayoutDashboard },
   { to: "/app/alumnos", label: "Alumnos", icon: Users },
   { to: "/app/grados", label: "Grados", icon: GraduationCap },
+  { to: "/app/cursos", label: "Aula Virtual", icon: BookOpenCheck },
   { to: "/app/pagos", label: "Pagos", icon: Banknote },
   { to: "/app/calificaciones", label: "Calificaciones", icon: ClipboardCheck },
   { to: "/app/tareas", label: "Tareas", icon: BookOpen },
@@ -64,6 +65,7 @@ const padreNav: NavItemDef[] = [
 
 const alumnoNav: NavItemDef[] = [
   { to: "/app", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/app/cursos", label: "Mis Cursos", icon: BookOpenCheck },
   { to: "/app/tareas", label: "Mis Tareas", icon: BookOpen },
   { to: "/app/notas", label: "Mis Notas", icon: FileText },
   { to: "/app/horario", label: "Horario", icon: Clock },

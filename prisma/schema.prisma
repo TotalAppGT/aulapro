@@ -94,6 +94,10 @@ model Colegio {
   pagos        PagoCheckout[]
   entregasTarea EntregaTarea[]
   notificaciones NotificacionProgramada[]
+  cursos       Curso[]
+  materiales   Material[]
+  muroPosts    MuroPost[]
+  sesiones     SesionEnVivo[]
 
   @@index([emailAdmin])
   @@index([estado])
@@ -124,6 +128,11 @@ model Usuario {
   documentosCreados  Documento[]
   alumnosResponsable Alumno[]        @relation("AlumnoResponsable")
   notificacionesCreadas NotificacionProgramada[] @relation("NotificacionCreador")
+  cursosProfesor     Curso[]         @relation("CursoProfesor")
+  materialesCreados  Material[]
+  muroPosts          MuroPost[]
+  muroComentarios    MuroComentario[]
+  sesionesCreadas    SesionEnVivo[]
 
   @@unique([colegioId, email])
   @@index([colegioId])
@@ -174,6 +183,7 @@ model Grado {
   horarios      Horario[]
   tareas        Tarea[]
   anuncios      Anuncio[]
+  cursos        Curso[]
 
   @@unique([colegioId, nombre])
   @@index([colegioId])
@@ -192,6 +202,7 @@ model Materia {
   calificaciones Calificacion[]
   horarios      Horario[]
   asistencias   Asistencia[]
+  cursos        Curso[]
 
   @@unique([colegioId, nombre])
 }
@@ -417,4 +428,99 @@ model NotificacionProgramada {
 
   @@index([colegioId, activa])
   @@index([proximoEnvioAt])
+}
+
+model Curso {
+  id          String   @id @default(cuid())
+  colegioId   String
+  gradoId     String
+  materiaId   String?
+  profesorId  String?
+  nombre      String
+  descripcion String?
+  color       String?
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  colegio     Colegio        @relation(fields: [colegioId], references: [id])
+  grado       Grado          @relation(fields: [gradoId], references: [id])
+  materia     Materia?       @relation(fields: [materiaId], references: [id])
+  profesor    Usuario?       @relation("CursoProfesor", fields: [profesorId], references: [id])
+  materiales  Material[]
+  posts       MuroPost[]
+  sesiones    SesionEnVivo[]
+
+  @@unique([colegioId, gradoId, materiaId])
+  @@index([colegioId])
+  @@index([profesorId])
+}
+
+model Material {
+  id          String   @id @default(cuid())
+  colegioId   String
+  cursoId     String
+  titulo      String
+  descripcion String?
+  tipo        String   @default("ARCHIVO")
+  key         String?
+  url         String?
+  creadoPor   String
+  createdAt   DateTime @default(now())
+
+  colegio     Colegio  @relation(fields: [colegioId], references: [id])
+  curso       Curso    @relation(fields: [cursoId], references: [id], onDelete: Cascade)
+  creador     Usuario  @relation(fields: [creadoPor], references: [id])
+
+  @@index([colegioId, cursoId])
+}
+
+model MuroPost {
+  id          String   @id @default(cuid())
+  colegioId   String
+  cursoId     String
+  autorId     String
+  contenido   String
+  archivos    String[]
+  createdAt   DateTime @default(now())
+
+  colegio     Colegio          @relation(fields: [colegioId], references: [id])
+  curso       Curso            @relation(fields: [cursoId], references: [id], onDelete: Cascade)
+  autor       Usuario          @relation(fields: [autorId], references: [id])
+  comentarios MuroComentario[]
+
+  @@index([colegioId, cursoId, createdAt])
+}
+
+model MuroComentario {
+  id        String   @id @default(cuid())
+  postId    String
+  autorId   String
+  contenido String
+  createdAt DateTime @default(now())
+
+  post      MuroPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  autor     Usuario  @relation(fields: [autorId], references: [id])
+
+  @@index([postId])
+}
+
+model SesionEnVivo {
+  id          String   @id @default(cuid())
+  colegioId   String
+  cursoId     String
+  titulo      String
+  descripcion String?
+  fecha       DateTime
+  duracionMin Int      @default(60)
+  proveedor   String   @default("JITSI")
+  url         String
+  creadoPor   String
+  createdAt   DateTime @default(now())
+
+  colegio     Colegio  @relation(fields: [colegioId], references: [id])
+  curso       Curso    @relation(fields: [cursoId], references: [id], onDelete: Cascade)
+  creador     Usuario  @relation(fields: [creadoPor], references: [id])
+
+  @@index([colegioId, cursoId, fecha])
 }

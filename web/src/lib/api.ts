@@ -84,3 +84,31 @@ export function apiPatch<T = unknown>(endpoint: string, body?: unknown): Promise
 export function apiDelete<T = unknown>(endpoint: string): Promise<T> {
   return api<T>(endpoint, { method: "DELETE" })
 }
+
+export async function apiUpload<T = unknown>(
+  endpoint: string,
+  formData: FormData
+): Promise<T> {
+  const token = useAuthStore.getState().token
+  const headers: Record<string, string> = {}
+  if (token) headers["Authorization"] = `Bearer ${token}`
+
+  const response = await fetch(`${API_BASE}${endpoint}`, {
+    method: "POST",
+    headers,
+    body: formData,
+  })
+
+  if (response.status === 401) {
+    useAuthStore.getState().logout()
+    window.location.href = "/login"
+    throw new Error("Sesion expirada")
+  }
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}))
+    throw new Error(data.error || `Error del servidor (${response.status})`)
+  }
+
+  return response.json()
+}

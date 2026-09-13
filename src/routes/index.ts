@@ -15,6 +15,8 @@ import { qrRoutes } from './qr.routes';
 import { notificacionRoutes } from './notificacion.routes';
 import { usuarioRoutes } from './usuario.routes';
 import { mensajeRoutes } from './mensaje.routes';
+import { cursoRoutes } from './curso.routes';
+import { uploadRoutes } from './upload.routes';
 import { webhookRoutes } from './webhooks/recurrente';
 import { whatsappWebhookRoutes } from './webhooks/whatsapp';
 
@@ -39,6 +41,8 @@ router.use('/:colegioId/reportes', reporteRoutes);
 router.use('/:colegioId/notificaciones', notificacionRoutes);
 router.use('/:colegioId/usuarios', usuarioRoutes);
 router.use('/:colegioId/mensajes', mensajeRoutes);
+router.use('/:colegioId/cursos', cursoRoutes);
+router.use('/:colegioId/uploads', uploadRoutes);
 router.use(qrRoutes);
 router.use('/webhooks', webhookRoutes);
 router.use('/webhooks/whatsapp', whatsappWebhookRoutes);

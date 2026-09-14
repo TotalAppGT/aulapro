@@ -98,6 +98,8 @@ model Colegio {
   materiales   Material[]
   muroPosts    MuroPost[]
   sesiones     SesionEnVivo[]
+  evaluaciones Evaluacion[]
+  intentosEvaluacion IntentoEvaluacion[]
 
   @@index([emailAdmin])
   @@index([estado])
@@ -133,6 +135,8 @@ model Usuario {
   muroPosts          MuroPost[]
   muroComentarios    MuroComentario[]
   sesionesCreadas    SesionEnVivo[]
+  evaluacionesCreadas Evaluacion[]   @relation("EvaluacionCreador")
+  intentosEvaluacion IntentoEvaluacion[]
 
   @@unique([colegioId, email])
   @@index([colegioId])
@@ -450,6 +454,7 @@ model Curso {
   materiales  Material[]
   posts       MuroPost[]
   sesiones    SesionEnVivo[]
+  evaluaciones Evaluacion[]
 
   @@unique([colegioId, gradoId, materiaId])
   @@index([colegioId])
@@ -523,4 +528,66 @@ model SesionEnVivo {
   creador     Usuario  @relation(fields: [creadoPor], references: [id])
 
   @@index([colegioId, cursoId, fecha])
+}
+
+enum TipoPregunta {
+  OPCION_MULTIPLE
+  VERDADERO_FALSO
+  RESPUESTA_CORTA
+}
+
+model Evaluacion {
+  id           String   @id @default(cuid())
+  colegioId    String
+  cursoId      String
+  titulo       String
+  descripcion  String?
+  tipo         String   @default("QUIZ")
+  puntajeTotal Float    @default(100)
+  intentosMax  Int      @default(1)
+  publicado    Boolean  @default(true)
+  creadoPor    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  colegio      Colegio             @relation(fields: [colegioId], references: [id])
+  curso        Curso               @relation(fields: [cursoId], references: [id], onDelete: Cascade)
+  creador      Usuario             @relation("EvaluacionCreador", fields: [creadoPor], references: [id])
+  preguntas    Pregunta[]
+  intentos     IntentoEvaluacion[]
+
+  @@index([colegioId, cursoId])
+}
+
+model Pregunta {
+  id                String       @id @default(cuid())
+  evaluacionId      String
+  orden             Int          @default(0)
+  enunciado         String
+  tipo              TipoPregunta @default(OPCION_MULTIPLE)
+  opciones          String[]
+  respuestaCorrecta String
+  puntaje           Float        @default(1)
+
+  evaluacion        Evaluacion   @relation(fields: [evaluacionId], references: [id], onDelete: Cascade)
+
+  @@index([evaluacionId])
+}
+
+model IntentoEvaluacion {
+  id           String    @id @default(cuid())
+  colegioId    String
+  evaluacionId String
+  usuarioId    String
+  respuestas   Json      @default("{}")
+  nota         Float?
+  estado       String    @default("ENVIADO")
+  iniciadoAt   DateTime  @default(now())
+  finalizadoAt DateTime?
+
+  colegio      Colegio    @relation(fields: [colegioId], references: [id])
+  evaluacion   Evaluacion @relation(fields: [evaluacionId], references: [id], onDelete: Cascade)
+  usuario      Usuario    @relation(fields: [usuarioId], references: [id])
+
+  @@index([evaluacionId, usuarioId])
 }

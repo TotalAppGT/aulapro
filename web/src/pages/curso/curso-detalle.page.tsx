@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useAuthStore } from "@/stores/auth.store"
 import { apiGet, apiPost, apiDelete, apiUpload } from "@/lib/api"
+import { EvaluacionesTab } from "@/components/curso/evaluaciones-tab"
 
 interface Curso {
   id: string
@@ -72,6 +73,7 @@ interface Sesion {
 const TABS = [
   { id: "muro", label: "Muro" },
   { id: "materiales", label: "Materiales" },
+  { id: "evaluaciones", label: "Evaluaciones" },
   { id: "en-vivo", label: "En vivo" },
 ] as const
 
@@ -153,6 +155,9 @@ export default function CursoDetallePage() {
           )}
           {tab === "materiales" && (
             <MaterialesTab colegioId={user!.colegioId} cursoId={curso.id} puedeEditar={puedeEditar} queryClient={queryClient} />
+          )}
+          {tab === "evaluaciones" && (
+            <EvaluacionesTab colegioId={user!.colegioId} cursoId={curso.id} puedeEditar={puedeEditar} />
           )}
           {tab === "en-vivo" && (
             <EnVivoTab colegioId={user!.colegioId} cursoId={curso.id} puedeEditar={puedeEditar} queryClient={queryClient} />

@@ -3,6 +3,12 @@ import { runDueNotifications } from '../services/notification.service';
 let interval: NodeJS.Timeout | null = null;
 
 export function startScheduler(): void {
+  // Interruptor de migracion: evita duplicar notificaciones al correr en paralelo.
+  if (process.env.DISABLE_CRON === 'true') {
+    console.log('[Scheduler] Desactivado (DISABLE_CRON=true)');
+    return;
+  }
+
   if (interval) return;
 
   const tick = async () => {

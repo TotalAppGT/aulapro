@@ -20,6 +20,7 @@ import { evaluacionRoutes } from './evaluacion.routes';
 import { uploadRoutes } from './upload.routes';
 import { webhookRoutes } from './webhooks/recurrente';
 import { whatsappWebhookRoutes } from './webhooks/whatsapp';
+import { provisionRoutes } from './provision.routes';
 
 export const router = Router();
 
@@ -28,6 +29,7 @@ router.get('/health', (_req, res) => {
 });
 
 router.use('/auth', authRoutes);
+router.use('/provision', provisionRoutes);
 router.use(colegioRoutes);
 router.use('/:colegioId/alumnos', alumnoRoutes);
 router.use('/:colegioId/grados', gradoRoutes);

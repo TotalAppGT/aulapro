@@ -19,7 +19,7 @@ export const FIREBASE_CLIENT_EMAIL = process.env.FIREBASE_CLIENT_EMAIL || '';
 export const FIREBASE_PRIVATE_KEY = (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
 
 export const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
-export const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'ContaPro <no-reply@totalappgt.online>';
+export const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'ContaPro <no-reply@totalappgt.com>';
 
 export const R2_ENDPOINT = process.env.R2_ENDPOINT || '';
 export const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID || '';
@@ -29,7 +29,7 @@ export const R2_BUCKET = process.env.R2_BUCKET_NAME || '';
 export const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || '';
 export const R2_REGION = process.env.R2_REGION || 'auto';
 
-export const APP_URL = process.env.APP_URL || 'https://totalappgt.online';
+export const APP_URL = process.env.APP_URL || 'https://totalappgt.com';
 export const CORS_ORIGIN = process.env.CORS_ORIGIN || (NODE_ENV === 'production' ? APP_URL : 'http://localhost:5173');
 
 const config = {

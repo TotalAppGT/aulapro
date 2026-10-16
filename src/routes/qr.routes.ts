@@ -133,6 +133,13 @@ qrRoutes.post('/qr/verificar', async (req: Request, res: Response, next: NextFun
         });
         asistenciaRegistrada = true;
         estadoAsistencia = 'PRESENTE';
+      } else if (existing.estado === 'AUSENTE') {
+        await prisma.asistencia.update({
+          where: { id: existing.id },
+          data: { estado: 'PRESENTE', justificacion: null },
+        });
+        asistenciaRegistrada = true;
+        estadoAsistencia = 'PRESENTE';
       } else {
         estadoAsistencia = existing.estado;
       }

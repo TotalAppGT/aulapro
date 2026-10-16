@@ -1,5 +1,5 @@
 import { create } from "zustand"
-import { apiPost } from "@/lib/api"
+import { apiGet, apiPost } from "@/lib/api"
 
 export type Role = "SUPERADMIN" | "ADMIN_COLEGIO" | "PROFESOR" | "PADRE" | "ALUMNO"
 
@@ -50,6 +50,7 @@ interface AuthState {
   register: (data: RegisterData) => Promise<void>
   logout: () => Promise<void>
   loadFromStorage: () => void
+  refresh: () => Promise<void>
   isAuthenticated: () => boolean
 }
 
@@ -132,6 +133,31 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         localStorage.removeItem("token")
         localStorage.removeItem("user")
       }
+    }
+  },
+
+  refresh: async () => {
+    const token = get().token
+    if (!token) return
+    try {
+      const data = await apiGet<{
+        usuario: { id: string; email: string; nombre: string; rol: Role; colegioId: string; avatarUrl?: string | null }
+        colegio: { id: string; nombre: string; logoUrl?: string | null }
+      }>("/auth/me")
+      const user: User = {
+        id: data.usuario.id,
+        email: data.usuario.email,
+        nombre: data.usuario.nombre,
+        rol: data.usuario.rol,
+        colegioId: data.usuario.colegioId,
+        colegioNombre: data.colegio.nombre,
+        colegioLogo: data.colegio.logoUrl ?? null,
+        avatarUrl: data.usuario.avatarUrl,
+      }
+      localStorage.setItem("user", JSON.stringify(user))
+      set({ user })
+    } catch {
+      await get().logout()
     }
   },
 

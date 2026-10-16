@@ -9,13 +9,40 @@ const DAY = 86400000;
 const addDays = (n: number) => new Date(now.getTime() + n * DAY);
 const at = (y: number, m: number, d: number) => new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
 const pick = <T>(a: T[], i: number): T => a[((i % a.length) + a.length) % a.length];
+const rand = (i: number, mod: number) => ((i * 9301 + 49297) % 233280) % mod; // pseudo-aleatorio determinista
 
-const DEMO_PRINCIPAL = 'totalappgt@gmail.com';
-const DEMO_SECUNDARIO = 'admin@roble.edu.gt';
+function mesesUltimos(cantidad: number): string[] {
+  const out: string[] = [];
+  for (let k = cantidad - 1; k >= 0; k--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - k, 1);
+    out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  }
+  return out;
+}
 
-// Borra SOLO los datos de un colegio (sin TRUNCATE; no toca otros colegios).
-// El borrado de Curso arrastra (cascade) Material, MuroPost(+comentarios),
-// SesionEnVivo y Evaluacion(+Pregunta+IntentoEvaluacion).
+const NOMBRES = ['Ana', 'Luis', 'Karla', 'Diego', 'Elena', 'Marco', 'Sara', 'Iván', 'Paola', 'Bruno', 'Nadia', 'Hugo', 'Julia', 'Raúl', 'Clara', 'Félix', 'Diana', 'Óscar', 'Mía', 'Leo', 'Rosa', 'Tomás', 'Eva', 'Pablo', 'nora', 'Alan', 'Iris', 'Dante', 'Lía', 'Gael'];
+const APELLIDOS = ['Solís', 'Vega', 'Lima', 'Cruz', 'Ortiz', 'Mejía', 'López', 'García', 'Pérez', 'Ramírez', 'Torres', 'Flores', 'Castillo', 'Morales', 'Reyes', 'Hernández'];
+
+interface SeedCfg {
+  nombre: string;
+  emailAdmin: string;
+  emailDomain: string;
+  codigoRef: string;
+  plan: string;
+  estado: string;
+  telefono: string;
+  direccion: string;
+  mensualidad: number;
+  grados: { nombre: string; nivel: string }[];
+  materias: string[];
+  nProfesores: number;
+  nPadres: number;
+  nAlumnos: number;
+  diasAsistencia: number;
+  nCursosMaterias: number;
+  mesesMensualidad: number;
+}
+
 async function resetColegio(colegioId: string): Promise<void> {
   await prisma.curso.deleteMany({ where: { colegioId } });
   await prisma.notificacionProgramada.deleteMany({ where: { colegioId } });
@@ -36,141 +63,83 @@ async function resetColegio(colegioId: string): Promise<void> {
   await prisma.colegio.delete({ where: { id: colegioId } });
 }
 
-async function main() {
-  console.log('=== AulaPro · seed de auditoria ===');
-
-  for (const email of [DEMO_PRINCIPAL, DEMO_SECUNDARIO]) {
-    const existente = await prisma.colegio.findFirst({ where: { emailAdmin: email } });
-    if (existente) {
-      console.log(`Reseteando datos de ${email}...`);
-      await resetColegio(existente.id);
-    }
-  }
-
-  const passwordHash = await bcrypt.hash(PASS, 10);
-
-  // ============================================================
-  // COLEGIO PRINCIPAL
-  // ============================================================
+async function seedColegio(cfg: SeedCfg, passwordHash: string): Promise<void> {
   const colegio = await prisma.colegio.create({
     data: {
-      nombre: 'Colegio Demo Las Rosas',
-      direccion: '15 Av. 20-45, Zona 10, Ciudad de Guatemala',
-      telefono: '+502 5555-0001',
-      emailAdmin: 'totalappgt@gmail.com',
-      plan: 'PRO',
-      estado: 'ACTIVE',
-      recurrenteAccountId: 'ac_demo_aulapro',
-      config: { mensualidadDefault: 350, bimestres: 4, moneda: 'GTQ', cicloEscolar: '2026' },
+      nombre: cfg.nombre, direccion: cfg.direccion, telefono: cfg.telefono,
+      emailAdmin: cfg.emailAdmin, plan: cfg.plan, estado: cfg.estado,
+      trialEndsAt: cfg.estado === 'TRIAL' ? addDays(10) : null,
+      config: { mensualidadDefault: cfg.mensualidad, bimestres: 4, moneda: 'GTQ', cicloEscolar: '2026' },
     },
   });
   const cid = colegio.id;
 
-  const admin = await prisma.usuario.create({
-    data: { colegioId: cid, email: 'totalappgt@gmail.com', passwordHash, rol: 'ADMIN_COLEGIO', nombre: 'Carlos Admin', telefono: '+502 5555-0001' },
-  });
+  const admin = await prisma.usuario.create({ data: { colegioId: cid, email: cfg.emailAdmin, passwordHash, rol: 'ADMIN_COLEGIO', nombre: 'Admin ' + cfg.nombre, telefono: cfg.telefono } });
 
-  const profNombres = ['María Profesora', 'Juan Profesor', 'Ana Profesora', 'Luis Profesor'];
   const profesores = [];
-  for (let i = 0; i < profNombres.length; i++) {
-    profesores.push(await prisma.usuario.create({
-      data: { colegioId: cid, email: `profesor${i + 1}@demo.edu.gt`, passwordHash, rol: 'PROFESOR', nombre: profNombres[i], telefono: `+502 5555-000${i + 2}` },
-    }));
+  const profNombres = ['María', 'Juan', 'Ana', 'Luis', 'Carmen', 'Pedro', 'Silvia', 'Jorge'];
+  for (let i = 0; i < cfg.nProfesores; i++) {
+    profesores.push(await prisma.usuario.create({ data: { colegioId: cid, email: `profesor${i + 1}@${cfg.emailDomain}`, passwordHash, rol: 'PROFESOR', nombre: `${pick(profNombres, i)} Profesor${i + 1}`, telefono: `+502 5555-${String(1000 + i)}` } }));
   }
 
-  const gradosDef = [
-    { nombre: '1ro Primaria A', nivel: 'Primaria' },
-    { nombre: '1ro Primaria B', nivel: 'Primaria' },
-    { nombre: '2do Primaria A', nivel: 'Primaria' },
-    { nombre: '2do Primaria B', nivel: 'Primaria' },
-    { nombre: '3ro Primaria A', nivel: 'Primaria' },
-    { nombre: '3ro Primaria B', nivel: 'Primaria' },
-  ];
   const grados = [];
-  for (let i = 0; i < gradosDef.length; i++) {
-    grados.push(await prisma.grado.create({
-      data: { colegioId: cid, nombre: gradosDef[i].nombre, nivel: gradosDef[i].nivel, profesorGuiaId: pick(profesores, i).id },
-    }));
+  for (let i = 0; i < cfg.grados.length; i++) {
+    grados.push(await prisma.grado.create({ data: { colegioId: cid, nombre: cfg.grados[i].nombre, nivel: cfg.grados[i].nivel, profesorGuiaId: pick(profesores, i).id } }));
   }
 
-  const materiasDef = ['Matemáticas', 'Lenguaje', 'Ciencias Naturales', 'Ciencias Sociales', 'Inglés', 'Tecnología', 'Educación Física', 'Artes Plásticas'];
   const materias = [];
-  for (let i = 0; i < materiasDef.length; i++) {
-    materias.push(await prisma.materia.create({
-      data: { colegioId: cid, nombre: materiasDef[i], profesorId: pick(profesores, i).id },
-    }));
+  for (let i = 0; i < cfg.materias.length; i++) {
+    materias.push(await prisma.materia.create({ data: { colegioId: cid, nombre: cfg.materias[i], profesorId: pick(profesores, i).id } }));
   }
 
-  // Horarios: 6 grados x 5 días x 6 periodos
+  // Horarios
   const horas = [['07:00', '07:45'], ['07:45', '08:30'], ['08:30', '09:15'], ['09:45', '10:30'], ['10:30', '11:15'], ['11:15', '12:00']];
   const horarioData = [];
   for (let gi = 0; gi < grados.length; gi++) {
     for (let dia = 1; dia <= 5; dia++) {
       for (let p = 0; p < horas.length; p++) {
-        horarioData.push({ colegioId: cid, gradoId: grados[gi].id, materiaId: pick(materias, gi + dia * 3 + p).id, diaSemana: dia, horaInicio: horas[p][0], horaFin: horas[p][1], aula: `Aula ${grados[gi].nombre.slice(0, 1)}${(gi % 3) + 1}` });
+        horarioData.push({ colegioId: cid, gradoId: grados[gi].id, materiaId: pick(materias, gi + dia * 3 + p).id, diaSemana: dia, horaInicio: horas[p][0], horaFin: horas[p][1], aula: `Aula ${(gi % 6) + 1}` });
       }
     }
   }
   await prisma.horario.createMany({ data: horarioData });
 
-  const padresDef = [
-    ['Ana López', '+502 5550-1001'], ['Roberto García', '+502 5550-1002'], ['María Pérez', '+502 5550-1003'],
-    ['José Hernández', '+502 5550-1004'], ['Carmen Morales', '+502 5550-1005'], ['Pedro Castillo', '+502 5550-1006'],
-    ['Rosa Ramírez', '+502 5550-1007'], ['Miguel Torres', '+502 5550-1008'], ['Silvia Flores', '+502 5550-1009'],
-    ['Diego Reyes', '+502 5550-1010'],
-  ];
+  // Padres
   const padres = [];
-  for (let i = 0; i < padresDef.length; i++) {
-    padres.push(await prisma.usuario.create({
-      data: { colegioId: cid, email: `padre${i + 1}@demo.edu.gt`, passwordHash, rol: 'PADRE', nombre: padresDef[i][0], telefono: padresDef[i][1] },
+  for (let i = 0; i < cfg.nPadres; i++) {
+    padres.push(await prisma.usuario.create({ data: { colegioId: cid, email: `padre${i + 1}@${cfg.emailDomain}`, passwordHash, rol: 'PADRE', nombre: `${pick(NOMBRES, i)} ${pick(APELLIDOS, i + 3)}`, telefono: `+502 5550-${String(2000 + i)}` } }));
+  }
+
+  // Alumnos
+  const alumnos = [];
+  for (let i = 0; i < cfg.nAlumnos; i++) {
+    const codigo = `${cfg.codigoRef}${String(i + 1).padStart(4, '0')}`;
+    alumnos.push(await prisma.alumno.create({
+      data: {
+        colegioId: cid, codigo, cui: String(24000000000 + i),
+        nombre: pick(NOMBRES, i), apellido: pick(APELLIDOS, i + 2),
+        gradoId: grados[i % grados.length].id, responsableId: padres[i % padres.length].id,
+        fechaNacimiento: at(2010 + (i % 8), 1 + (i % 12), 1 + (i % 27)),
+        direccion: `Zona ${1 + (i % 25)}, Ciudad de Guatemala`,
+        qrToken: `QR-${codigo}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+      },
     }));
   }
 
-  const alumnoNombres = [
-    ['Pedro', 'López'], ['Sofía', 'López'], ['Diego', 'Martínez'], ['Valeria', 'García'], ['Mateo', 'Pérez'],
-    ['Camila', 'Hernández'], ['Sebastián', 'Morales'], ['Isabella', 'Castillo'], ['Nicolás', 'Ramírez'], ['Daniela', 'Torres'],
-    ['Andrés', 'Flores'], ['Gabriela', 'Reyes'], ['Emilio', 'López'], ['Renata', 'García'], ['Santiago', 'Pérez'],
-    ['Ximena', 'Hernández'], ['Alejandro', 'Morales'], ['Fernanda', 'Castillo'], ['Ricardo', 'Ramírez'], ['Paula', 'Torres'],
-    ['Javier', 'Flores'], ['Andrea', 'Reyes'], ['Diego', 'López'], ['Natalia', 'García'], ['Rodrigo', 'Pérez'],
-    ['Emma', 'Hernández'], ['Tomás', 'Morales'], ['Lucía', 'Castillo'], ['Bruno', 'Ramírez'], ['María', 'Torres'],
-  ];
-  const alumnos = [];
-  const alumnoData = [];
-  for (let i = 0; i < alumnoNombres.length; i++) {
-    const codigo = '2026' + String(i + 1).padStart(3, '0');
-    alumnoData.push({
-      colegioId: cid, codigo, cui: String(24000000000 + i),
-      nombre: alumnoNombres[i][0], apellido: alumnoNombres[i][1],
-      gradoId: grados[i % grados.length].id, responsableId: padres[i % padres.length].id,
-      fechaNacimiento: at(2015 + (i % 6), 1 + (i % 12), 1 + (i % 27)),
-      direccion: `Zona ${1 + (i % 25)}, Ciudad de Guatemala`,
-      qrToken: `AL-${codigo}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
-    });
-  }
-  for (const d of alumnoData) alumnos.push(await prisma.alumno.create({ data: d }));
-
   const alumnoUsers: { u: any; alumno: any }[] = [];
-  for (let i = 0; i < 8; i++) {
-    const u = await prisma.usuario.create({
-      data: { colegioId: cid, email: `alumno${i + 1}@demo.edu.gt`, passwordHash, rol: 'ALUMNO', nombre: `${alumnos[i].nombre} ${alumnos[i].apellido}` },
-    });
+  const nUsers = Math.min(12, alumnos.length);
+  for (let i = 0; i < nUsers; i++) {
+    const u = await prisma.usuario.create({ data: { colegioId: cid, email: `alumno${i + 1}@${cfg.emailDomain}`, passwordHash, rol: 'ALUMNO', nombre: `${alumnos[i].nombre} ${alumnos[i].apellido}` } });
     alumnoUsers.push({ u, alumno: alumnos[i] });
   }
 
   // Tareas + entregas
   const tareas = [];
   for (let gi = 0; gi < grados.length; gi++) {
-    const g = grados[gi];
     for (let t = 0; t < 3; t++) {
       const m = pick(materias, gi + t);
       tareas.push(await prisma.tarea.create({
-        data: {
-          colegioId: cid, gradoId: g.id, materia: m.nombre,
-          titulo: `${m.nombre}: actividad ${t + 1} (${g.nombre})`,
-          descripcion: 'Resuelve los ejercicios indicados y súbelos a la plataforma.',
-          fechaEntrega: addDays((t - 1) * 4 + gi), tipo: t === 2 ? 'proyecto' : 'tarea', archivos: [],
-          creadoPor: m.profesorId ?? profesores[0].id,
-        },
+        data: { colegioId: cid, gradoId: grados[gi].id, materia: m.nombre, titulo: `${m.nombre}: actividad ${t + 1} (${grados[gi].nombre})`, descripcion: 'Resuelve los ejercicios y súbelos a la plataforma.', fechaEntrega: addDays((t - 1) * 4 + gi), tipo: t === 2 ? 'proyecto' : 'tarea', archivos: [], creadoPor: m.profesorId ?? profesores[0].id },
       }));
     }
   }
@@ -181,26 +150,19 @@ async function main() {
     const acts = alumnos.filter((a) => a.gradoId === t.gradoId);
     for (let k = 0; k < acts.length; k++) {
       const est = pick(estadosEntrega, k + ti);
-      entregasData.push({
-        colegioId: cid, tareaId: t.id, alumnoId: acts[k].id, estado: est, archivos: [],
-        nota: est === 'CALIFICADO' ? 60 + ((k * 7 + ti) % 40) : null,
-        comentario: est === 'TARDE' ? 'Entregado fuera de fecha.' : null,
-        fechaEntrega: est === 'PENDIENTE' ? null : addDays(-1),
-        calificadoAt: est === 'CALIFICADO' ? addDays(-1) : null,
-      });
+      entregasData.push({ colegioId: cid, tareaId: t.id, alumnoId: acts[k].id, estado: est, archivos: [], nota: est === 'CALIFICADO' ? 60 + ((k * 7 + ti) % 40) : null, comentario: est === 'TARDE' ? 'Entregado fuera de fecha.' : null, fechaEntrega: est === 'PENDIENTE' ? null : addDays(-1), calificadoAt: est === 'CALIFICADO' ? addDays(-1) : null });
     }
   }
   await prisma.entregaTarea.createMany({ data: entregasData });
 
-  // Asistencias (últimos 12 días hábiles)
-  const tiposAsist = ['PRESENTE', 'PRESENTE', 'PRESENTE', 'PRESENTE', 'AUSENTE', 'TARDE', 'EXCUSA'];
+  // Asistencias
+  const tiposAsist = ['PRESENTE', 'PRESENTE', 'PRESENTE', 'PRESENTE', 'PRESENTE', 'AUSENTE', 'TARDE', 'EXCUSA'];
   const asistData = [];
-  let diasHabiles = 0;
-  for (let back = 1; diasHabiles < 12 && back < 40; back++) {
+  let dias = 0;
+  for (let back = 1; dias < cfg.diasAsistencia && back < cfg.diasAsistencia * 3 + 10; back++) {
     const d = addDays(-back);
-    const dow = d.getDay();
-    if (dow === 0 || dow === 6) continue;
-    diasHabiles++;
+    if (d.getDay() === 0 || d.getDay() === 6) continue;
+    dias++;
     const fecha = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
     for (let i = 0; i < alumnos.length; i++) {
       const est = pick(tiposAsist, i + back);
@@ -209,10 +171,10 @@ async function main() {
   }
   await prisma.asistencia.createMany({ data: asistData });
 
-  // Calificaciones (6 materias x 4 bimestres)
+  // Calificaciones (todas las materias x 4 bimestres)
   const calData = [];
   for (let i = 0; i < alumnos.length; i++) {
-    for (const m of materias.slice(0, 6)) {
+    for (const m of materias) {
       for (let b = 1; b <= 4; b++) {
         calData.push({ colegioId: cid, alumnoId: alumnos[i].id, materiaId: m.id, bimestre: b, nota: 60 + ((i * 3 + b * 7 + m.nombre.length) % 40), tipo: b === 4 ? 'final' : 'parcial', registradoPor: m.profesorId ?? profesores[0].id });
       }
@@ -220,300 +182,148 @@ async function main() {
   }
   await prisma.calificacion.createMany({ data: calData });
 
-  // Mensualidades
-  const meses = ['2026-05', '2026-06', '2026-07', '2026-08', '2026-09', '2026-10'];
+  // Mensualidades (varios meses, distintos estados para reportes)
+  const meses = mesesUltimos(cfg.mesesMensualidad);
   const mensData = [];
   for (let i = 0; i < alumnos.length; i++) {
     for (let j = 0; j < meses.length; j++) {
-      const pagado = j < 4;
-      mensData.push({ colegioId: cid, alumnoId: alumnos[i].id, mes: meses[j], monto: 350, estado: pagado ? 'PAGADO' : j === 4 ? 'VERIFICANDO' : 'PENDIENTE', fechaPago: pagado ? at(2026, 5 + j, 5) : null, liquidado: j < 3, comisionPlataforma: pagado ? 10.5 : null, recurrenteCheckoutId: pagado ? `ch_demo_${i}_${j}` : null });
+      const esActual = j === meses.length - 1;
+      const esReciente = j === meses.length - 2;
+      let estado: string;
+      if (esActual) estado = pick(['PENDIENTE', 'PAGADO', 'PAGADO', 'VERIFICANDO', 'VENCIDO'], i + j);
+      else if (esReciente) estado = pick(['PAGADO', 'PAGADO', 'VERIFICANDO'], i + j);
+      else estado = pick(['PAGADO', 'PAGADO', 'PAGADO', 'PAGADO', 'VENCIDO'], i + j);
+      const pagado = estado === 'PAGADO';
+      mensData.push({ colegioId: cid, alumnoId: alumnos[i].id, mes: meses[j], monto: cfg.mensualidad, estado, fechaPago: pagado ? at(parseInt(meses[j].slice(0, 4), 10), parseInt(meses[j].slice(5), 10), 5 + (i % 20)) : null, liquidado: pagado && j < meses.length - 2, comisionPlataforma: pagado ? Math.round(cfg.mensualidad * 0.03 * 100) / 100 : null, recurrenteCheckoutId: pagado ? `ch_${cfg.codigoRef}_${i}_${j}` : null });
     }
   }
   await prisma.mensualidad.createMany({ data: mensData });
 
-  await prisma.pagoCheckout.createMany({
-    data: [
-      { colegioId: cid, checkoutId: 'ch_demo_001', metadata: { plan: 'PRO', periodo: '2026-10' }, monto: 349, estado: 'pagado', recurrenteData: { metodo: 'bank_transfer' } },
-      { colegioId: cid, checkoutId: 'ch_demo_002', metadata: { plan: 'PRO', periodo: '2026-11' }, monto: 349, estado: 'pendiente', recurrenteData: {} },
-      { colegioId: cid, checkoutId: 'ch_demo_003', metadata: { alumno: alumnos[0].codigo, mes: '2026-10' }, monto: 350, estado: 'pagado', recurrenteData: { metodo: 'card' } },
-    ],
-  });
+  await prisma.pagoCheckout.createMany({ data: [
+    { colegioId: cid, checkoutId: `ch_${cfg.codigoRef}_001`, metadata: { plan: cfg.plan, periodo: meses[meses.length - 1] }, monto: cfg.mensualidad, estado: 'pagado', recurrenteData: { metodo: 'bank_transfer' } },
+    { colegioId: cid, checkoutId: `ch_${cfg.codigoRef}_002`, metadata: { plan: cfg.plan }, monto: cfg.mensualidad, estado: 'pendiente', recurrenteData: {} },
+    { colegioId: cid, checkoutId: `ch_${cfg.codigoRef}_003`, metadata: { alumno: alumnos[0]?.codigo }, monto: cfg.mensualidad, estado: 'pagado', recurrenteData: { metodo: 'card' } },
+  ] });
 
   // Anuncios
   const anunciosDef = [
-    ['Reunión de padres de familia', 'Se les invita a la reunión general el viernes 15 a las 18:00 en el salón de usos múltiples.', 'GENERAL'],
-    ['Suspensión de clases', 'Por mantenimiento del plantel, se suspenden las clases el lunes.', 'URGENTE'],
-    ['Entrega de boletas', 'La entrega de boletas del tercer bimestre será el próximo lunes.', 'GENERAL'],
-    ['Feria científica', 'Los alumnos de 3ro presentarán sus proyectos en la feria científica.', 'GRADO'],
-    ['Jornada de vacunación', 'El ministerio de salud realizará jornada de vacunación en el colegio.', 'GENERAL'],
+    ['Reunión de padres de familia', 'Se les invita a la reunión general el viernes a las 18:00.', 'GENERAL'],
+    ['Suspensión de clases', 'Por mantenimiento, se suspenden las clases el lunes.', 'URGENTE'],
+    ['Entrega de boletas', 'La entrega de boletas del bimestre será el próximo lunes.', 'GENERAL'],
+    ['Feria científica', 'Los alumnos presentarán sus proyectos en la feria científica.', 'GRADO'],
+    ['Jornada de vacunación', 'El ministerio de salud realizará jornada de vacunación.', 'GENERAL'],
+    ['Día del deporte', 'Actividades deportivas durante toda la mañana.', 'GENERAL'],
   ];
   for (let i = 0; i < anunciosDef.length; i++) {
-    await prisma.anuncio.create({
-      data: { colegioId: cid, titulo: anunciosDef[i][0], contenido: anunciosDef[i][1], tipo: anunciosDef[i][2], gradoId: anunciosDef[i][2] === 'GRADO' ? grados[4].id : null, enviarWhatsapp: i % 2 === 0, enviarEmail: i % 3 === 0, archivos: [], creadoPor: admin.id },
-    });
+    await prisma.anuncio.create({ data: { colegioId: cid, titulo: anunciosDef[i][0], contenido: anunciosDef[i][1], tipo: anunciosDef[i][2], gradoId: anunciosDef[i][2] === 'GRADO' ? grados[grados.length - 1].id : null, enviarWhatsapp: i % 2 === 0, enviarEmail: i % 3 === 0, archivos: [], creadoPor: admin.id } });
   }
 
   // Mensajes
-  const conversaciones: [any, any, string][] = [
-    [padres[0], profesores[0], 'Buenos días, ¿cómo va Pedro en matemáticas?'],
-    [profesores[0], padres[0], 'Muy bien, ha mejorado bastante este bimestre.'],
-    [padres[1], profesores[1], '¿Habrá refuerzo los sábados?'],
-    [profesores[1], padres[1], 'Sí, iniciamos el próximo sábado a las 9:00.'],
-    [admin, profesores[2], 'Necesito el reporte de asistencia del mes.'],
-    [profesores[2], admin, 'Lo envío hoy por la tarde.'],
-  ];
-  for (const [rem, dest, contenido] of conversaciones) {
-    await prisma.mensaje.create({ data: { colegioId: cid, remitenteId: rem.id, destinatarioId: dest.id, contenido, leido: false } });
+  const mensajesData = [];
+  for (let i = 0; i < Math.min(6, padres.length); i++) {
+    mensajesData.push({ colegioId: cid, remitenteId: padres[i].id, destinatarioId: pick(profesores, i).id, contenido: 'Buenos días, ¿cómo va mi hijo en clases?', leido: i % 2 === 0 });
+    mensajesData.push({ colegioId: cid, remitenteId: pick(profesores, i).id, destinatarioId: padres[i].id, contenido: 'Muy bien, ha mejorado este bimestre.', leido: i % 2 === 0 });
   }
+  await prisma.mensaje.createMany({ data: mensajesData });
 
   // Documentos
-  const docsDef = [['BOLETA', 'Boleta 3er bimestre - Pedro López'], ['REPORTE', 'Reporte de asistencia - Junio'], ['CIRCULAR', 'Circular de inicio de ciclo escolar'], ['CONTABILIDAD', 'Estado de cuenta plataforma - Septiembre']];
-  for (const [tipo, titulo] of docsDef) {
-    await prisma.documento.create({ data: { colegioId: cid, tipo, titulo, url: 'https://cdn.totalappgt.com/demo/documento.pdf', tamanoBytes: 245760, creadoPor: admin.id } });
+  for (let i = 0; i < 4; i++) {
+    await prisma.documento.create({ data: { colegioId: cid, tipo: pick(['BOLETA', 'REPORTE', 'CIRCULAR', 'CONTABILIDAD'], i), titulo: `Documento ${i + 1} - ${cfg.nombre}`, url: `https://cdn.totalappgt.com/demo/doc-${cfg.codigoRef}-${i}.pdf`, tamanoBytes: 200000 + i * 1000, creadoPor: admin.id } });
   }
 
-  // Notificaciones programadas
-  await prisma.notificacionProgramada.createMany({
-    data: [
-      { colegioId: cid, titulo: 'Recordatorio de pago', mensaje: 'Recuerda pagar la mensualidad del mes.', canal: 'WHATSAPP', frecuencia: 'MENSUAL', hora: '08:00', diaMes: 5, roles: ['PADRE'], telefonos: [], activa: true, proximoEnvioAt: addDays(2), creadoPor: admin.id },
-      { colegioId: cid, titulo: 'Reunión semanal', mensaje: 'Reunión de profesores todos los lunes.', canal: 'WHATSAPP', frecuencia: 'SEMANAL', hora: '07:00', diaSemana: 1, roles: ['PROFESOR'], telefonos: [], activa: true, proximoEnvioAt: addDays(3), creadoPor: admin.id },
-      { colegioId: cid, titulo: 'Buenos días', mensaje: 'Que tengas un excelente día.', canal: 'WHATSAPP', frecuencia: 'DIARIA', hora: '06:30', roles: ['ADMIN_COLEGIO'], telefonos: ['+502 5550-1099'], activa: false, creadoPor: admin.id },
-    ],
-  });
+  // Notificaciones
+  await prisma.notificacionProgramada.createMany({ data: [
+    { colegioId: cid, titulo: 'Recordatorio de pago', mensaje: 'Recuerda pagar la mensualidad del mes.', canal: 'WHATSAPP', frecuencia: 'MENSUAL', hora: '08:00', diaMes: 5, roles: ['PADRE'], telefonos: [], activa: true, proximoEnvioAt: addDays(2), creadoPor: admin.id },
+    { colegioId: cid, titulo: 'Reunión semanal', mensaje: 'Reunión de profesores todos los lunes.', canal: 'WHATSAPP', frecuencia: 'SEMANAL', hora: '07:00', diaSemana: 1, roles: ['PROFESOR'], telefonos: [], activa: true, proximoEnvioAt: addDays(3), creadoPor: admin.id },
+    { colegioId: cid, titulo: 'Buenos días', mensaje: 'Que tengas un excelente día.', canal: 'WHATSAPP', frecuencia: 'DIARIA', hora: '06:30', roles: ['ADMIN_COLEGIO'], telefonos: [], activa: false, creadoPor: admin.id },
+  ] });
 
-  // Cursos (cada grado x 4 materias)
+  // Cursos + materiales + muro + sesiones + evaluaciones
   const cursos = [];
   for (let gi = 0; gi < grados.length; gi++) {
-    for (let mi = 0; mi < 4; mi++) {
+    for (let mi = 0; mi < Math.min(cfg.nCursosMaterias, materias.length); mi++) {
       const m = materias[mi];
-      cursos.push(await prisma.curso.create({
-        data: { colegioId: cid, gradoId: grados[gi].id, materiaId: m.id, profesorId: m.profesorId, nombre: `${m.nombre} - ${grados[gi].nombre}`, descripcion: `Curso de ${m.nombre} para ${grados[gi].nombre}`, color: pick(['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6'], gi + mi), activo: true },
-      }));
+      cursos.push(await prisma.curso.create({ data: { colegioId: cid, gradoId: grados[gi].id, materiaId: m.id, profesorId: m.profesorId, nombre: `${m.nombre} - ${grados[gi].nombre}`, descripcion: `Curso de ${m.nombre} para ${grados[gi].nombre}`, color: pick(['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6'], gi + mi), activo: true } }));
     }
   }
-
-  // Materiales
   const matData = [];
   for (const c of cursos) {
-    matData.push({ colegioId: cid, cursoId: c.id, titulo: `Guía de ${c.nombre}`, descripcion: 'Material de apoyo para el bimestre.', tipo: 'ARCHIVO', key: null, url: 'https://cdn.totalappgt.com/demo/guia.pdf', creadoPor: c.profesorId });
-    matData.push({ colegioId: cid, cursoId: c.id, titulo: 'Video explicativo', descripcion: 'Clase grabada de repaso.', tipo: 'VIDEO', key: null, url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', creadoPor: c.profesorId });
-    matData.push({ colegioId: cid, cursoId: c.id, titulo: 'Presentación del tema', descripcion: 'Diapositivas de la unidad.', tipo: 'ENLACE', key: null, url: 'https://cdn.totalappgt.com/demo/presentacion.pdf', creadoPor: c.profesorId });
+    matData.push({ colegioId: cid, cursoId: c.id, titulo: `Guía de ${c.nombre}`, descripcion: 'Material de apoyo.', tipo: 'ARCHIVO', key: null, url: 'https://cdn.totalappgt.com/demo/guia.pdf', creadoPor: c.profesorId });
+    matData.push({ colegioId: cid, cursoId: c.id, titulo: 'Video explicativo', descripcion: 'Clase grabada.', tipo: 'VIDEO', key: null, url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', creadoPor: c.profesorId });
   }
   await prisma.material.createMany({ data: matData });
 
-  // Muro de clase + comentarios
   for (let ci = 0; ci < cursos.length; ci++) {
     const c = cursos[ci];
-    const post = await prisma.muroPost.create({
-      data: { colegioId: cid, cursoId: c.id, autorId: c.profesorId, contenido: `¡Bienvenidos al curso ${c.nombre}! Aquí publicaremos avisos y resolveremos dudas.`, archivos: [] },
-    });
-    await prisma.muroComentario.createMany({
-      data: [
-        { postId: post.id, autorId: admin.id, contenido: 'Excelente, cualquier duda la vemos en clase.' },
-        { postId: post.id, autorId: pick(padres, ci).id, contenido: '¿Habrá refuerzo los sábados?' },
-        { postId: post.id, autorId: pick(alumnoUsers.map((x) => x.u), ci).id, contenido: 'Profesor, ¿la tarea es individual?' },
-      ],
-    });
+    const post = await prisma.muroPost.create({ data: { colegioId: cid, cursoId: c.id, autorId: c.profesorId, contenido: `¡Bienvenidos al curso ${c.nombre}! Aquí publicaremos avisos.`, archivos: [] } });
+    await prisma.muroComentario.createMany({ data: [
+      { postId: post.id, autorId: admin.id, contenido: 'Excelente, cualquier duda la vemos en clase.' },
+      { postId: post.id, autorId: pick(padres, ci).id, contenido: '¿Habrá refuerzo?' },
+    ] });
   }
 
-  // Sesiones en vivo
-  await prisma.sesionEnVivo.createMany({
-    data: [
-      { colegioId: cid, cursoId: cursos[0].id, titulo: 'Clase en vivo: repaso de fracciones', descripcion: 'Repaso general para el examen.', fecha: addDays(1), duracionMin: 60, proveedor: 'JITSI', url: 'https://meet.jit.si/aulapro-repaso-fracciones', creadoPor: cursos[0].profesorId },
-      { colegioId: cid, cursoId: cursos[5].id, titulo: 'Clase en vivo: comprensión lectora', descripcion: 'Lectura guiada.', fecha: addDays(2), duracionMin: 45, proveedor: 'JITSI', url: 'https://meet.jit.si/aulapro-comprension', creadoPor: cursos[5].profesorId },
-      { colegioId: cid, cursoId: cursos[12].id, titulo: 'Clase en vivo: el sistema solar', descripcion: 'Introducción a la astronomía.', fecha: addDays(3), duracionMin: 60, proveedor: 'JITSI', url: 'https://meet.jit.si/aulapro-solar', creadoPor: cursos[12].profesorId },
-    ],
-  });
+  for (let i = 0; i < Math.min(5, cursos.length); i++) {
+    await prisma.sesionEnVivo.create({ data: { colegioId: cid, cursoId: cursos[i].id, titulo: `Clase en vivo: ${cursos[i].nombre}`, descripcion: 'Sesión de repaso.', fecha: addDays(i + 1), duracionMin: 60, proveedor: 'JITSI', url: `https://meet.jit.si/aulapro-${cfg.codigoRef}-${i}`, creadoPor: cursos[i].profesorId } });
+  }
 
-  // Evaluaciones + preguntas + intentos
   for (const c of cursos) {
-    const ev = await prisma.evaluacion.create({
-      data: { colegioId: cid, cursoId: c.id, titulo: `Quiz 1 - ${c.nombre}`, descripcion: 'Evaluación diagnóstica del primer periodo.', tipo: 'QUIZ', puntajeTotal: 100, intentosMax: 2, publicado: true, creadoPor: c.profesorId },
-    });
-    await prisma.pregunta.createMany({
-      data: [
-        { evaluacionId: ev.id, orden: 1, enunciado: '¿Cuánto es 7 x 8?', tipo: 'OPCION_MULTIPLE', opciones: ['54', '56', '48', '64'], respuestaCorrecta: '56', puntaje: 25 },
-        { evaluacionId: ev.id, orden: 2, enunciado: 'La Tierra es plana.', tipo: 'VERDADERO_FALSO', opciones: ['Verdadero', 'Falso'], respuestaCorrecta: 'Falso', puntaje: 25 },
-        { evaluacionId: ev.id, orden: 3, enunciado: 'Proceso por el cual las plantas producen su alimento:', tipo: 'RESPUESTA_CORTA', opciones: [], respuestaCorrecta: 'Fotosíntesis', puntaje: 25 },
-        { evaluacionId: ev.id, orden: 4, enunciado: '¿Cuál es la capital de Guatemala?', tipo: 'OPCION_MULTIPLE', opciones: ['Quetzaltenango', 'Guatemala', 'Antigua', 'Escuintla'], respuestaCorrecta: 'Guatemala', puntaje: 25 },
-      ],
-    });
+    const ev = await prisma.evaluacion.create({ data: { colegioId: cid, cursoId: c.id, titulo: `Quiz - ${c.nombre}`, descripcion: 'Evaluación del periodo.', tipo: 'QUIZ', puntajeTotal: 100, intentosMax: 2, publicado: true, creadoPor: c.profesorId } });
+    await prisma.pregunta.createMany({ data: [
+      { evaluacionId: ev.id, orden: 1, enunciado: '¿Cuánto es 7 x 8?', tipo: 'OPCION_MULTIPLE', opciones: ['54', '56', '48', '64'], respuestaCorrecta: '56', puntaje: 25 },
+      { evaluacionId: ev.id, orden: 2, enunciado: 'La Tierra es plana.', tipo: 'VERDADERO_FALSO', opciones: ['Verdadero', 'Falso'], respuestaCorrecta: 'Falso', puntaje: 25 },
+      { evaluacionId: ev.id, orden: 3, enunciado: 'Proceso de las plantas para producir alimento:', tipo: 'RESPUESTA_CORTA', opciones: [], respuestaCorrecta: 'Fotosíntesis', puntaje: 25 },
+      { evaluacionId: ev.id, orden: 4, enunciado: '¿Capital de Guatemala?', tipo: 'OPCION_MULTIPLE', opciones: ['Xela', 'Guatemala', 'Antigua'], respuestaCorrecta: 'Guatemala', puntaje: 25 },
+    ] });
     for (const au of alumnoUsers) {
       if (au.alumno.gradoId !== c.gradoId) continue;
-      await prisma.intentoEvaluacion.create({
-        data: { colegioId: cid, evaluacionId: ev.id, usuarioId: au.u.id, respuestas: { '1': '56', '2': 'Falso', '3': 'Fotosíntesis', '4': 'Guatemala' }, nota: 70 + (parseInt(au.alumno.codigo.slice(-2), 10) % 30), estado: 'CALIFICADO', finalizadoAt: addDays(-2) },
-      });
+      await prisma.intentoEvaluacion.create({ data: { colegioId: cid, evaluacionId: ev.id, usuarioId: au.u.id, respuestas: { '1': '56', '2': 'Falso', '3': 'Fotosíntesis', '4': 'Guatemala' }, nota: 70 + rand(parseInt(au.alumno.codigo.slice(-2), 10) || 1, 30), estado: 'CALIFICADO', finalizadoAt: addDays(-2) } });
     }
   }
 
-  // ============================================================
-  // SEGUNDO COLEGIO (datos completos + aislamiento multi-tenant)
-  // ============================================================
-  const colegio2 = await prisma.colegio.create({
-    data: { nombre: 'Instituto Demo El Roble', direccion: 'Km 12 Carretera a El Salvador', telefono: '+502 5555-9000', emailAdmin: 'admin@roble.edu.gt', plan: 'STARTER', estado: 'TRIAL', trialEndsAt: addDays(10), config: { mensualidadDefault: 400, moneda: 'GTQ' } },
-  });
-  const c2 = colegio2.id;
-  const admin2 = await prisma.usuario.create({ data: { colegioId: c2, email: 'admin@roble.edu.gt', passwordHash, rol: 'ADMIN_COLEGIO', nombre: 'Roberto Roble' } });
+  console.log(`  ✓ ${cfg.nombre}: ${grados.length} grados, ${alumnos.length} alumnos, ${cursos.length} cursos, ${tareas.length} tareas, ${mensData.length} mensualidades`);
+}
 
-  const profNombres2 = ['Elena Roble', 'Mario Roble', 'Lucía Roble'];
-  const profesores2 = [];
-  for (let i = 0; i < profNombres2.length; i++) {
-    profesores2.push(await prisma.usuario.create({ data: { colegioId: c2, email: `profesor${i + 1}@roble.edu.gt`, passwordHash, rol: 'PROFESOR', nombre: profNombres2[i] } }));
-  }
+const MAIN: SeedCfg = {
+  nombre: 'Colegio Demo Las Rosas', emailAdmin: 'totalappgt@gmail.com', emailDomain: 'demo.edu.gt', codigoRef: 'A',
+  plan: 'PRO', estado: 'ACTIVE', telefono: '+502 5555-0001', direccion: '15 Av. 20-45, Zona 10, Ciudad de Guatemala',
+  mensualidad: 350,
+  grados: [
+    { nombre: '1ro Primaria A', nivel: 'Primaria' }, { nombre: '1ro Primaria B', nivel: 'Primaria' },
+    { nombre: '2do Primaria A', nivel: 'Primaria' }, { nombre: '2do Primaria B', nivel: 'Primaria' },
+    { nombre: '3ro Primaria A', nivel: 'Primaria' }, { nombre: '3ro Primaria B', nivel: 'Primaria' },
+    { nombre: '4to Primaria A', nivel: 'Primaria' }, { nombre: '5to Primaria A', nivel: 'Primaria' },
+    { nombre: '6to Primaria A', nivel: 'Primaria' },
+  ],
+  materias: ['Matemáticas', 'Lenguaje', 'Ciencias Naturales', 'Ciencias Sociales', 'Inglés', 'Tecnología', 'Educación Física', 'Artes Plásticas', 'Formación Ciudadana', 'Música'],
+  nProfesores: 6, nPadres: 24, nAlumnos: 90, diasAsistencia: 20, nCursosMaterias: 5, mesesMensualidad: 10,
+};
 
-  const gradosDef2 = [
-    { nombre: '4to Bachillerato A', nivel: 'Diversificado' },
-    { nombre: '5to Bachillerato A', nivel: 'Diversificado' },
-    { nombre: '6to Bachillerato A', nivel: 'Diversificado' },
-  ];
-  const grados2 = [];
-  for (let i = 0; i < gradosDef2.length; i++) {
-    grados2.push(await prisma.grado.create({ data: { colegioId: c2, nombre: gradosDef2[i].nombre, nivel: gradosDef2[i].nivel, profesorGuiaId: pick(profesores2, i).id } }));
-  }
+const SECUNDARIO: SeedCfg = {
+  nombre: 'Instituto Demo El Roble', emailAdmin: 'admin@roble.edu.gt', emailDomain: 'roble.edu.gt', codigoRef: 'R',
+  plan: 'STARTER', estado: 'TRIAL', telefono: '+502 5555-9000', direccion: 'Km 12 Carretera a El Salvador',
+  mensualidad: 425,
+  grados: [
+    { nombre: '4to Bachillerato A', nivel: 'Diversificado' }, { nombre: '4to Bachillerato B', nivel: 'Diversificado' },
+    { nombre: '5to Bachillerato A', nivel: 'Diversificado' }, { nombre: '6to Bachillerato A', nivel: 'Diversificado' },
+  ],
+  materias: ['Matemáticas', 'Física', 'Química', 'Biología', 'Literatura', 'Historia', 'Inglés', 'Estadística'],
+  nProfesores: 5, nPadres: 14, nAlumnos: 48, diasAsistencia: 16, nCursosMaterias: 4, mesesMensualidad: 8,
+};
 
-  const materiasDef2 = ['Matemáticas', 'Física', 'Química', 'Biología', 'Literatura', 'Historia'];
-  const materias2 = [];
-  for (let i = 0; i < materiasDef2.length; i++) {
-    materias2.push(await prisma.materia.create({ data: { colegioId: c2, nombre: materiasDef2[i], profesorId: pick(profesores2, i).id } }));
-  }
+async function main() {
+  console.log('=== AulaPro · seed de auditoria ===');
 
-  // Horarios del 2do colegio
-  const horas2 = [['07:00', '07:50'], ['07:50', '08:40'], ['08:40', '09:30'], ['10:00', '10:50']];
-  const horarioData2 = [];
-  for (let gi = 0; gi < grados2.length; gi++) {
-    for (let dia = 1; dia <= 5; dia++) {
-      for (let p = 0; p < horas2.length; p++) {
-        horarioData2.push({ colegioId: c2, gradoId: grados2[gi].id, materiaId: pick(materias2, gi + dia + p).id, diaSemana: dia, horaInicio: horas2[p][0], horaFin: horas2[p][1], aula: `B${gi + 1}` });
-      }
+  for (const email of [MAIN.emailAdmin, SECUNDARIO.emailAdmin]) {
+    const existente = await prisma.colegio.findFirst({ where: { emailAdmin: email } });
+    if (existente) {
+      console.log(`Reseteando datos de ${email}...`);
+      await resetColegio(existente.id);
     }
   }
-  await prisma.horario.createMany({ data: horarioData2 });
 
-  const padresDef2 = [
-    ['Héctor Solís', '+502 5560-2001'], ['Marta Vega', '+502 5560-2002'], ['Óscar Lima', '+502 5560-2003'],
-    ['Patricia Cruz', '+502 5560-2004'], ['Rubén Ortiz', '+502 5560-2005'], ['Sandra Mejía', '+502 5560-2006'],
-  ];
-  const padres2 = [];
-  for (let i = 0; i < padresDef2.length; i++) {
-    padres2.push(await prisma.usuario.create({ data: { colegioId: c2, email: `padre${i + 1}@roble.edu.gt`, passwordHash, rol: 'PADRE', nombre: padresDef2[i][0], telefono: padresDef2[i][1] } }));
-  }
-
-  const nombres2 = ['Ana', 'Luis', 'Karla', 'Diego', 'Elena', 'Marco', 'Sara', 'Iván', 'Paola', 'Bruno', 'Nadia', 'Hugo', 'Julia', 'Raúl', 'Clara', 'Félix', 'Diana', 'Óscar'];
-  const apellidos2 = ['Solís', 'Vega', 'Lima', 'Cruz', 'Ortiz', 'Mejía'];
-  const alumnos2 = [];
-  for (let i = 0; i < nombres2.length; i++) {
-    const codigo = `R2026${String(i + 1).padStart(3, '0')}`;
-    alumnos2.push(await prisma.alumno.create({
-      data: {
-        colegioId: c2, codigo, nombre: nombres2[i], apellido: pick(apellidos2, i),
-        gradoId: grados2[i % grados2.length].id, responsableId: padres2[i % padres2.length].id,
-        fechaNacimiento: at(2007 + (i % 3), 1 + (i % 12), 1 + (i % 27)),
-        direccion: `Col. El Roble, Casa ${i + 1}`, qrToken: `RB-${codigo}`,
-      },
-    }));
-  }
-
-  for (let i = 0; i < 6; i++) {
-    await prisma.usuario.create({ data: { colegioId: c2, email: `alumno${i + 1}@roble.edu.gt`, passwordHash, rol: 'ALUMNO', nombre: `${alumnos2[i].nombre} ${alumnos2[i].apellido}` } });
-  }
-
-  // Tareas + entregas (2do colegio)
-  const tareas2 = [];
-  for (let gi = 0; gi < grados2.length; gi++) {
-    for (let t = 0; t < 2; t++) {
-      const m = pick(materias2, gi + t);
-      tareas2.push(await prisma.tarea.create({
-        data: { colegioId: c2, gradoId: grados2[gi].id, materia: m.nombre, titulo: `${m.nombre}: actividad ${t + 1}`, descripcion: 'Sube tu trabajo a la plataforma.', fechaEntrega: addDays((t - 1) * 5 + gi), tipo: 'tarea', archivos: [], creadoPor: m.profesorId ?? profesores2[0].id },
-      }));
-    }
-  }
-  const entregasData2 = [];
-  for (let ti = 0; ti < tareas2.length; ti++) {
-    const t = tareas2[ti];
-    const acts = alumnos2.filter((a) => a.gradoId === t.gradoId);
-    for (let k = 0; k < acts.length; k++) {
-      const est = pick(estadosEntrega, k + ti);
-      entregasData2.push({ colegioId: c2, tareaId: t.id, alumnoId: acts[k].id, estado: est, archivos: [], nota: est === 'CALIFICADO' ? 65 + ((k * 5 + ti) % 35) : null, fechaEntrega: est === 'PENDIENTE' ? null : addDays(-2), calificadoAt: est === 'CALIFICADO' ? addDays(-2) : null });
-    }
-  }
-  await prisma.entregaTarea.createMany({ data: entregasData2 });
-
-  // Asistencias (2do colegio)
-  const asistData2 = [];
-  let dias2 = 0;
-  for (let back = 1; dias2 < 8 && back < 30; back++) {
-    const d = addDays(-back);
-    if (d.getDay() === 0 || d.getDay() === 6) continue;
-    dias2++;
-    const fecha = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-    for (let i = 0; i < alumnos2.length; i++) {
-      asistData2.push({ colegioId: c2, alumnoId: alumnos2[i].id, materiaId: null, fecha, estado: pick(tiposAsist, i + back), justificacion: null, registradoPor: pick(profesores2, i).id });
-    }
-  }
-  await prisma.asistencia.createMany({ data: asistData2 });
-
-  // Calificaciones (2do colegio)
-  const calData2 = [];
-  for (let i = 0; i < alumnos2.length; i++) {
-    for (const m of materias2.slice(0, 4)) {
-      for (let b = 1; b <= 4; b++) {
-        calData2.push({ colegioId: c2, alumnoId: alumnos2[i].id, materiaId: m.id, bimestre: b, nota: 62 + ((i * 3 + b * 5 + m.nombre.length) % 38), tipo: b === 4 ? 'final' : 'parcial', registradoPor: m.profesorId ?? profesores2[0].id });
-      }
-    }
-  }
-  await prisma.calificacion.createMany({ data: calData2 });
-
-  // Mensualidades (2do colegio)
-  const mensData2 = [];
-  for (let i = 0; i < alumnos2.length; i++) {
-    for (let j = 0; j < 4; j++) {
-      const pagado = j < 2;
-      mensData2.push({ colegioId: c2, alumnoId: alumnos2[i].id, mes: meses[j + 2], monto: 400, estado: pagado ? 'PAGADO' : 'PENDIENTE', fechaPago: pagado ? at(2026, 7 + j, 6) : null, comisionPlataforma: pagado ? 12 : null });
-    }
-  }
-  await prisma.mensualidad.createMany({ data: mensData2 });
-
-  await prisma.anuncio.createMany({ data: [
-    { colegioId: c2, titulo: 'Entrega de proyectos finales', contenido: 'Los proyectos finales se entregan el próximo viernes.', tipo: 'GENERAL', archivos: [], creadoPor: admin2.id },
-    { colegioId: c2, titulo: 'Simulacro de evacuación', contenido: 'Se realizará un simulacro de evacuación el martes.', tipo: 'URGENTE', archivos: [], creadoPor: admin2.id },
-  ] });
-
-  await prisma.mensaje.createMany({ data: [
-    { colegioId: c2, remitenteId: padres2[0].id, destinatarioId: profesores2[0].id, contenido: 'Buenas, ¿cómo va mi hijo en física?', leido: false },
-    { colegioId: c2, remitenteId: profesores2[0].id, destinatarioId: padres2[0].id, contenido: 'Muy bien, ha mejorado este bimestre.', leido: false },
-  ] });
-
-  await prisma.documento.createMany({ data: [
-    { colegioId: c2, tipo: 'BOLETA', titulo: 'Boleta 2do bimestre', url: 'https://cdn.totalappgt.com/demo/boleta-roble.pdf', creadoPor: admin2.id },
-    { colegioId: c2, tipo: 'REPORTE', titulo: 'Reporte de asistencia', url: 'https://cdn.totalappgt.com/demo/asistencia-roble.pdf', creadoPor: admin2.id },
-  ] });
-
-  await prisma.notificacionProgramada.create({ data: { colegioId: c2, titulo: 'Recordatorio de pago', mensaje: 'Recuerda pagar la mensualidad.', canal: 'WHATSAPP', frecuencia: 'MENSUAL', hora: '08:00', diaMes: 5, roles: ['PADRE'], telefonos: [], activa: true, proximoEnvioAt: addDays(3), creadoPor: admin2.id } });
-
-  // Cursos + materiales + muro + evaluaciones (2do colegio)
-  const cursos2 = [];
-  for (let gi = 0; gi < grados2.length; gi++) {
-    for (let mi = 0; mi < 3; mi++) {
-      const m = materias2[mi];
-      cursos2.push(await prisma.curso.create({ data: { colegioId: c2, gradoId: grados2[gi].id, materiaId: m.id, profesorId: m.profesorId, nombre: `${m.nombre} - ${grados2[gi].nombre}`, color: pick(['#6366f1', '#10b981', '#f59e0b'], gi + mi), activo: true } }));
-    }
-  }
-  for (const c of cursos2) {
-    await prisma.material.createMany({ data: [
-      { colegioId: c2, cursoId: c.id, titulo: `Guía de ${c.nombre}`, tipo: 'ARCHIVO', url: 'https://cdn.totalappgt.com/demo/guia.pdf', creadoPor: c.profesorId },
-      { colegioId: c2, cursoId: c.id, titulo: 'Video de repaso', tipo: 'VIDEO', url: 'https://www.youtube.com/watch?v=demo', creadoPor: c.profesorId },
-    ] });
-    const post = await prisma.muroPost.create({ data: { colegioId: c2, cursoId: c.id, autorId: c.profesorId, contenido: `Bienvenidos al curso ${c.nombre}.`, archivos: [] } });
-    await prisma.muroComentario.create({ data: { postId: post.id, autorId: admin2.id, contenido: 'Cualquier duda la vemos en clase.' } });
-  }
-  for (const c of cursos2) {
-    const ev = await prisma.evaluacion.create({ data: { colegioId: c2, cursoId: c.id, titulo: `Quiz - ${c.nombre}`, tipo: 'QUIZ', puntajeTotal: 100, creadoPor: c.profesorId } });
-    await prisma.pregunta.createMany({ data: [
-      { evaluacionId: ev.id, orden: 1, enunciado: '¿Cuánto es 9 x 6?', tipo: 'OPCION_MULTIPLE', opciones: ['54', '56', '45'], respuestaCorrecta: '54', puntaje: 50 },
-      { evaluacionId: ev.id, orden: 2, enunciado: 'El agua hierve a 100°C.', tipo: 'VERDADERO_FALSO', opciones: ['Verdadero', 'Falso'], respuestaCorrecta: 'Verdadero', puntaje: 50 },
-    ] });
-  }
-
+  const passwordHash = await bcrypt.hash(PASS, 10);
+  await seedColegio(MAIN, passwordHash);
+  await seedColegio(SECUNDARIO, passwordHash);
 
   console.log('=== Seed completado ===');
   const counts: Record<string, number> = {
@@ -535,10 +345,11 @@ async function main() {
   };
   for (const [k, v] of Object.entries(counts)) console.log(`  ${k}: ${v}`);
   console.log('\nCredenciales (password: ' + PASS + '):');
-  console.log('  Admin:    totalappgt@gmail.com');
-  console.log('  Profesor: profesor1@demo.edu.gt');
-  console.log('  Padre:    padre1@demo.edu.gt');
-  console.log('  Alumno:   alumno1@demo.edu.gt');
+  console.log('  Admin principal:  totalappgt@gmail.com');
+  console.log('  Admin secundario: admin@roble.edu.gt');
+  console.log('  Profesor:         profesor1@demo.edu.gt');
+  console.log('  Padre:            padre1@demo.edu.gt');
+  console.log('  Alumno:           alumno1@demo.edu.gt');
 }
 
 main()

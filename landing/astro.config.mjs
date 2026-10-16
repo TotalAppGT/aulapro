@@ -4,5 +4,5 @@ import tailwind from '@astrojs/tailwind';
 export default defineConfig({
   integrations: [tailwind()],
   output: 'static',
-  site: 'https://aulapro.totalappgt.online',
+  site: 'https://aulapro.totalappgt.com',
 });

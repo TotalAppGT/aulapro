@@ -962,7 +962,7 @@ export default function LandingPage() {
                 </p>
                 <p className="flex items-center gap-2">
                   <Mail className="h-4 w-4 text-gray-500" />
-                  contacto@totalappgt.online
+                  contacto@totalappgt.com
                 </p>
                 <p className="flex items-center gap-2">
                   <MapPin className="h-4 w-4 text-gray-500" />

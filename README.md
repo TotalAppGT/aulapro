@@ -13,8 +13,8 @@ Sistema de gestion escolar multi-tenant con cobros automaticos para colegios en 
 | Archivos | Cloudflare R2 (S3-compatible, egress gratis) |
 | Mensajeria | WhatsApp Cloud API (Meta) |
 | Auth | JWT (bcrypt + jsonwebtoken) |
-| Hosting | Railway |
-| Dominio | totalappgt.online (Cloudflare) |
+| Hosting | Coolify (VPS propio) |
+| Dominio | totalappgt.com (Cloudflare) |
 
 ## Estructura
 

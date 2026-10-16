@@ -6,9 +6,7 @@ import { requireRole } from '../lib/roles';
 
 export const colegioRoutes = Router();
 
-colegioRoutes.use(authMiddleware);
-
-colegioRoutes.get('/colegio', async (req: Request, res: Response, next: NextFunction) => {
+colegioRoutes.get('/colegio', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const colegioId = req.user!.colegioId;
 
@@ -69,6 +67,7 @@ const updateColegioSchema = z.object({
 
 colegioRoutes.patch(
   '/colegio',
+  authMiddleware,
   requireRole('ADMIN_COLEGIO'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {

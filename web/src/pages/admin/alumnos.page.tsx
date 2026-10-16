@@ -1,6 +1,17 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { Users, Plus, Loader2, Search, GraduationCap, QrCode, Download, RefreshCw, X } from "lucide-react"
+import {
+  Users,
+  Plus,
+  Loader2,
+  Search,
+  GraduationCap,
+  QrCode,
+  Download,
+  RefreshCw,
+  X,
+  SlidersHorizontal,
+} from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -25,6 +36,7 @@ interface Grado {
   id: string
   nombre: string
   nivel: string | null
+  _count?: { alumnos: number }
 }
 
 interface QrData {
@@ -40,6 +52,9 @@ export default function AlumnosPage() {
   const user = useAuthStore((s) => s.user)
   const queryClient = useQueryClient()
   const [search, setSearch] = useState("")
+  const [filtroGrado, setFiltroGrado] = useState("")
+  const [filtroEstado, setFiltroEstado] = useState<"todos" | "activos" | "inactivos">("todos")
+  const [agrupar, setAgrupar] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({
     codigo: "",
@@ -81,8 +96,7 @@ export default function AlumnosPage() {
 
   const carnetQuery = useQuery<QrData>({
     queryKey: ["carnet", user?.colegioId, carnetAlumno?.id],
-    queryFn: () =>
-      apiGet<QrData>(`/${user?.colegioId}/alumnos/${carnetAlumno?.id}/qr`),
+    queryFn: () => apiGet<QrData>(`/${user?.colegioId}/alumnos/${carnetAlumno?.id}/qr`),
     enabled: !!carnetAlumno && !!user?.colegioId,
   })
 
@@ -99,14 +113,78 @@ export default function AlumnosPage() {
     a.click()
   }
 
-  const filtered = (alumnos ?? []).filter((a) => {
-    const q = search.toLowerCase()
-    return (
-      a.nombre.toLowerCase().includes(q) ||
-      (a.apellido ?? "").toLowerCase().includes(q) ||
-      a.codigo.toLowerCase().includes(q)
-    )
-  })
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return (alumnos ?? []).filter((a) => {
+      const coincideBusqueda =
+        !q ||
+        a.nombre.toLowerCase().includes(q) ||
+        (a.apellido ?? "").toLowerCase().includes(q) ||
+        a.codigo.toLowerCase().includes(q)
+      const coincideGrado = !filtroGrado || a.grado?.id === filtroGrado
+      const coincideEstado =
+        filtroEstado === "todos" ||
+        (filtroEstado === "activos" ? a.activo : !a.activo)
+      return coincideBusqueda && coincideGrado && coincideEstado
+    })
+  }, [alumnos, search, filtroGrado, filtroEstado])
+
+  const grupos = useMemo(() => {
+    const mapa = new Map<string, { grado: string; nivel?: string | null; alumnos: Alumno[] }>()
+    for (const a of filtered) {
+      const key = a.grado?.id ?? "sin-grado"
+      const nombre = a.grado?.nombre ?? "Sin grado asignado"
+      if (!mapa.has(key)) mapa.set(key, { grado: nombre, nivel: null, alumnos: [] })
+      mapa.get(key)!.alumnos.push(a)
+    }
+    return Array.from(mapa.values()).sort((x, y) => x.grado.localeCompare(y.grado))
+  }, [filtered])
+
+  const renderRow = (alumno: Alumno) => (
+    <tr key={alumno.id} className="border-b border-gray-100 last:border-0">
+      <td className="py-3 pr-4 text-gray-600">{alumno.codigo}</td>
+      <td className="py-3 pr-4 font-medium text-gray-900">
+        {alumno.nombre} {alumno.apellido}
+      </td>
+      {!agrupar && (
+        <td className="py-3 pr-4">
+          {alumno.grado ? (
+            <span className="inline-flex items-center gap-1 text-gray-600">
+              <GraduationCap className="h-4 w-4 text-gray-400" />
+              {alumno.grado.nombre}
+            </span>
+          ) : (
+            <span className="text-gray-400">Sin grado</span>
+          )}
+        </td>
+      )}
+      <td className="py-3 pr-4 text-gray-600">
+        {alumno.responsable ? alumno.responsable.nombre : "-"}
+      </td>
+      <td className="py-3">
+        <Badge variant={alumno.activo ? "success" : "secondary"}>
+          {alumno.activo ? "Activo" : "Inactivo"}
+        </Badge>
+      </td>
+      <td className="py-3">
+        <Button variant="outline" size="sm" onClick={() => setCarnetAlumno(alumno)}>
+          <QrCode className="h-3 w-3" />
+          <span className="ml-1">QR</span>
+        </Button>
+      </td>
+    </tr>
+  )
+
+  const headRow = (
+    <tr className="border-b border-gray-200 text-left">
+      <th className="pb-3 pr-4 font-medium text-gray-500">Codigo</th>
+      <th className="pb-3 pr-4 font-medium text-gray-500">Nombre</th>
+      {!agrupar && <th className="pb-3 pr-4 font-medium text-gray-500">Grado</th>}
+      <th className="pb-3 pr-4 font-medium text-gray-500">Responsable</th>
+      <th className="pb-3 pr-4 font-medium text-gray-500">Estado</th>
+      <th className="pb-3 font-medium text-gray-500">Carnet</th>
+    </tr>
+  )
 
   return (
     <div className="space-y-6">
@@ -114,7 +192,7 @@ export default function AlumnosPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Alumnos</h1>
           <p className="text-sm text-gray-500">
-            Gestiona los alumnos inscritos en {user?.colegioNombre}
+            {filtered.length} de {alumnos?.length ?? 0} alumnos en {user?.colegioNombre}
           </p>
         </div>
         <Button onClick={() => setShowForm(!showForm)}>
@@ -163,7 +241,7 @@ export default function AlumnosPage() {
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Grado</label>
+                <label className="text-sm font-medium text-gray-700">Grado / Seccion</label>
                 <select
                   value={form.gradoId}
                   onChange={(e) => setForm({ ...form, gradoId: e.target.value })}
@@ -198,16 +276,54 @@ export default function AlumnosPage() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Listado de Alumnos</CardTitle>
-            <div className="relative w-64">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <Input
-                placeholder="Buscar alumno..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <CardTitle>Listado de Alumnos</CardTitle>
+              <button
+                onClick={() => setAgrupar((v) => !v)}
+                className={`text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors ${
+                  agrupar
+                    ? "bg-primary-50 text-primary border-primary-200"
+                    : "bg-white text-gray-600 border-gray-200"
+                }`}
+              >
+                {agrupar ? "Vista por grado" : "Vista lista"}
+              </button>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <Input
+                  placeholder="Buscar por nombre o codigo..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <div className="flex items-center gap-2 text-gray-400">
+                <SlidersHorizontal className="h-4 w-4" />
+              </div>
+              <select
+                value={filtroGrado}
+                onChange={(e) => setFiltroGrado(e.target.value)}
+                className="h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+              >
+                <option value="">Todos los grados</option>
+                {(grados ?? []).map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.nombre}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={filtroEstado}
+                onChange={(e) => setFiltroEstado(e.target.value as typeof filtroEstado)}
+                className="h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+              >
+                <option value="todos">Todos</option>
+                <option value="activos">Activos</option>
+                <option value="inactivos">Inactivos</option>
+              </select>
             </div>
           </div>
         </CardHeader>
@@ -219,59 +335,31 @@ export default function AlumnosPage() {
           ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <Users className="h-12 w-12 text-gray-300" />
-              <p className="mt-3 text-sm text-gray-500">No hay alumnos registrados</p>
+              <p className="mt-3 text-sm text-gray-500">No hay alumnos que coincidan</p>
+            </div>
+          ) : agrupar ? (
+            <div className="space-y-6">
+              {grupos.map((grupo) => (
+                <div key={grupo.grado}>
+                  <div className="mb-2 flex items-center gap-2">
+                    <GraduationCap className="h-4 w-4 text-primary" />
+                    <h3 className="text-sm font-semibold text-gray-900">{grupo.grado}</h3>
+                    <Badge variant="secondary">{grupo.alumnos.length} alumnos</Badge>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>{headRow}</thead>
+                      <tbody>{grupo.alumnos.map(renderRow)}</tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-200 text-left">
-                    <th className="pb-3 pr-4 font-medium text-gray-500">Codigo</th>
-                    <th className="pb-3 pr-4 font-medium text-gray-500">Nombre</th>
-                    <th className="pb-3 pr-4 font-medium text-gray-500">Grado</th>
-                    <th className="pb-3 pr-4 font-medium text-gray-500">Responsable</th>
-                    <th className="pb-3 pr-4 font-medium text-gray-500">Estado</th>
-                    <th className="pb-3 font-medium text-gray-500">Carnet</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((alumno) => (
-                    <tr key={alumno.id} className="border-b border-gray-100 last:border-0">
-                      <td className="py-3 pr-4 text-gray-600">{alumno.codigo}</td>
-                      <td className="py-3 pr-4 font-medium text-gray-900">
-                        {alumno.nombre} {alumno.apellido}
-                      </td>
-                      <td className="py-3 pr-4">
-                        {alumno.grado ? (
-                          <span className="inline-flex items-center gap-1 text-gray-600">
-                            <GraduationCap className="h-4 w-4 text-gray-400" />
-                            {alumno.grado.nombre}
-                          </span>
-                        ) : (
-                          <span className="text-gray-400">Sin grado</span>
-                        )}
-                      </td>
-                      <td className="py-3 pr-4 text-gray-600">
-                        {alumno.responsable ? alumno.responsable.nombre : "-"}
-                      </td>
-                      <td className="py-3">
-                        <Badge variant="success">Activo</Badge>
-                      </td>
-                      <td className="py-3">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setCarnetAlumno(alumno)
-                          }}
-                        >
-                          <QrCode className="h-3 w-3" />
-                          <span className="ml-1">QR</span>
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
+                <thead>{headRow}</thead>
+                <tbody>{filtered.map(renderRow)}</tbody>
               </table>
             </div>
           )}
@@ -305,7 +393,7 @@ export default function AlumnosPage() {
                 <img
                   src={carnetQuery.data.qrImage}
                   alt="QR del alumno"
-                  className="h-64 w-64 rounded-md border border-gray-200"
+                  className="h-64 w-64 rounded-md border border-gray-200 bg-white"
                 />
               )}
             </div>

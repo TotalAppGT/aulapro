@@ -10,19 +10,42 @@ const addDays = (n: number) => new Date(now.getTime() + n * DAY);
 const at = (y: number, m: number, d: number) => new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
 const pick = <T>(a: T[], i: number): T => a[((i % a.length) + a.length) % a.length];
 
-const TABLES = [
-  'Colegio', 'Usuario', 'Alumno', 'Grado', 'Materia', 'Horario', 'Tarea', 'EntregaTarea',
-  'Asistencia', 'Calificacion', 'Mensualidad', 'PagoCheckout', 'Anuncio', 'Mensaje', 'Documento',
-  'NotificacionProgramada', 'Curso', 'Material', 'MuroPost', 'MuroComentario', 'SesionEnVivo',
-  'Evaluacion', 'Pregunta', 'IntentoEvaluacion',
-];
+const DEMO_PRINCIPAL = 'totalappgt@gmail.com';
+const DEMO_SECUNDARIO = 'admin@roble.edu.gt';
+
+// Borra SOLO los datos de un colegio (sin TRUNCATE; no toca otros colegios).
+// El borrado de Curso arrastra (cascade) Material, MuroPost(+comentarios),
+// SesionEnVivo y Evaluacion(+Pregunta+IntentoEvaluacion).
+async function resetColegio(colegioId: string): Promise<void> {
+  await prisma.curso.deleteMany({ where: { colegioId } });
+  await prisma.notificacionProgramada.deleteMany({ where: { colegioId } });
+  await prisma.documento.deleteMany({ where: { colegioId } });
+  await prisma.mensaje.deleteMany({ where: { colegioId } });
+  await prisma.anuncio.deleteMany({ where: { colegioId } });
+  await prisma.calificacion.deleteMany({ where: { colegioId } });
+  await prisma.asistencia.deleteMany({ where: { colegioId } });
+  await prisma.entregaTarea.deleteMany({ where: { colegioId } });
+  await prisma.tarea.deleteMany({ where: { colegioId } });
+  await prisma.horario.deleteMany({ where: { colegioId } });
+  await prisma.mensualidad.deleteMany({ where: { colegioId } });
+  await prisma.pagoCheckout.deleteMany({ where: { colegioId } });
+  await prisma.alumno.deleteMany({ where: { colegioId } });
+  await prisma.materia.deleteMany({ where: { colegioId } });
+  await prisma.grado.deleteMany({ where: { colegioId } });
+  await prisma.usuario.deleteMany({ where: { colegioId } });
+  await prisma.colegio.delete({ where: { id: colegioId } });
+}
 
 async function main() {
   console.log('=== AulaPro · seed de auditoria ===');
-  console.log('Limpiando tablas...');
-  await prisma.$executeRawUnsafe(
-    `TRUNCATE TABLE ${TABLES.map((t) => `"${t}"`).join(', ')} RESTART IDENTITY CASCADE;`,
-  );
+
+  for (const email of [DEMO_PRINCIPAL, DEMO_SECUNDARIO]) {
+    const existente = await prisma.colegio.findFirst({ where: { emailAdmin: email } });
+    if (existente) {
+      console.log(`Reseteando datos de ${email}...`);
+      await resetColegio(existente.id);
+    }
+  }
 
   const passwordHash = await bcrypt.hash(PASS, 10);
 

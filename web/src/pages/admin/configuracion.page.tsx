@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   Loader2,
@@ -9,6 +9,7 @@ import {
   Wallet,
   AlertTriangle,
   Settings,
+  CalendarClock,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -41,12 +42,25 @@ export default function ConfiguracionPage() {
   const user = useAuthStore((s) => s.user)
   const queryClient = useQueryClient()
   const [form, setForm] = useState({ nombre: "", direccion: "", telefono: "", logoUrl: "" })
+  const [asist, setAsist] = useState({
+    activo: true,
+    horaInicioClases: "07:00",
+    toleranciaMin: 120,
+    horaReporte: "10:00",
+    umbralBimestre: 3,
+    notificarInjustificadas: true,
+  })
 
   const { data, isLoading } = useQuery<ColegioData>({
     queryKey: ["colegio", user?.colegioId],
     queryFn: () => apiGet<ColegioData>(`/colegio`),
     enabled: !!user?.colegioId,
   })
+
+  useEffect(() => {
+    const cfg = (data?.colegio?.config?.asistencia as Record<string, unknown>) || {}
+    setAsist((prev) => ({ ...prev, ...cfg }))
+  }, [data?.colegio?.id])
 
   const saveMutation = useMutation({
     mutationFn: () =>
@@ -271,6 +285,108 @@ export default function ConfiguracionPage() {
                   </p>
                 </div>
                 <Badge variant="secondary">Q (GTQ)</Badge>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CalendarClock className="h-5 w-5 text-primary" />
+                Asistencia automatica
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-gray-500">
+                El sistema marca ausentes automaticamente despues de la tolerancia y envia el
+                reporte de inasistencias injustificadas a los responsables (por correo) a la hora
+                indicada. Cada colegio puede ajustar sus horarios.
+              </p>
+
+              <div className="flex items-center justify-between rounded-lg border border-gray-200 p-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Marcado automatico</p>
+                  <p className="text-sm text-gray-500">
+                    Activar el marcado y reporte automatico de inasistencias
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={asist.activo}
+                  onClick={() => setAsist({ ...asist, activo: !asist.activo })}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
+                    asist.activo ? "bg-primary" : "bg-gray-300"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      asist.activo ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Hora de inicio de clases</label>
+                  <Input
+                    type="time"
+                    value={asist.horaInicioClases}
+                    onChange={(e) => setAsist({ ...asist, horaInicioClases: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Tolerancia (minutos)</label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={asist.toleranciaMin}
+                    onChange={(e) =>
+                      setAsist({ ...asist, toleranciaMin: Number(e.target.value) || 0 })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Hora de envio del reporte</label>
+                  <Input
+                    type="time"
+                    value={asist.horaReporte}
+                    onChange={(e) => setAsist({ ...asist, horaReporte: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    Faltas por bimestre para alertar
+                  </label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={asist.umbralBimestre}
+                    onChange={(e) =>
+                      setAsist({ ...asist, umbralBimestre: Number(e.target.value) || 1 })
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <Button
+                  onClick={() =>
+                    configMutation.mutate({
+                      ...(colegio.config as Record<string, unknown>),
+                      asistencia: asist,
+                    })
+                  }
+                  disabled={configMutation.isPending}
+                >
+                  {configMutation.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="mr-2 h-4 w-4" />
+                  )}
+                  Guardar configuracion de asistencia
+                </Button>
               </div>
             </CardContent>
           </Card>

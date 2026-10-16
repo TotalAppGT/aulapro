@@ -47,6 +47,27 @@ interface MesPago {
   pendiente: number
 }
 
+interface DashboardResumen {
+  inasistencias: {
+    hoy: number
+    presentesHoy: number
+    tardesHoy: number
+    totalHoy: number
+    ausentesHoy: { alumno: string; grado: string }[]
+  }
+  asistenciaPorGrado: {
+    gradoId: string
+    grado: string
+    alumnos: number
+    total: number
+    presentes: number
+    ausentes: number
+    porcentaje: number
+  }[]
+  clasesEnVivo: { id: string; titulo: string; curso: string; fecha: string; url: string }[]
+  morosos: { alumnoId: string; alumno: string; grado: string; monto: number; meses: number }[]
+}
+
 const MONTHS_ES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
@@ -166,6 +187,12 @@ export default function AdminDashboardPage() {
         `/${user?.colegioId}/pagos`
       ),
     staleTime: 60000,
+  })
+
+  const { data: resumen } = useQuery<DashboardResumen>({
+    queryKey: ["admin-resumen", user?.colegioId],
+    queryFn: () => apiGet<DashboardResumen>(`/${user?.colegioId}/dashboard/resumen`),
+    staleTime: 30000,
   })
 
   const actividadReciente = useMemo(() => {
@@ -307,6 +334,142 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {resumen && (
+        <div className="grid gap-6 lg:grid-cols-3">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Asistencia de hoy</CardTitle>
+              <CardDescription>Registros de hoy</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold text-gray-900">
+                {resumen.inasistencias.presentesHoy}
+                <span className="text-base font-normal text-gray-400">
+                  /{resumen.inasistencias.totalHoy}
+                </span>
+              </p>
+              <p className="text-xs text-gray-500">presentes</p>
+              <div className="mt-3 flex gap-3 text-xs">
+                <span className="text-red-600">{resumen.inasistencias.hoy} ausentes</span>
+                <span className="text-yellow-600">{resumen.inasistencias.tardesHoy} tardes</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Inasistencias de hoy</CardTitle>
+              <CardDescription>Alumnos ausentes</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {resumen.inasistencias.ausentesHoy.length === 0 ? (
+                <p className="text-sm text-gray-500">Sin inasistencias registradas.</p>
+              ) : (
+                <ul className="space-y-1.5 text-sm">
+                  {resumen.inasistencias.ausentesHoy.map((a, i) => (
+                    <li key={i} className="flex items-center justify-between">
+                      <span className="truncate text-gray-800">{a.alumno}</span>
+                      <span className="ml-2 shrink-0 text-xs text-gray-400">{a.grado}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Clases en vivo</CardTitle>
+              <CardDescription>Proximas sesiones</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {resumen.clasesEnVivo.length === 0 ? (
+                <p className="text-sm text-gray-500">No hay clases programadas.</p>
+              ) : (
+                <ul className="space-y-2 text-sm">
+                  {resumen.clasesEnVivo.map((c) => (
+                    <li key={c.id} className="flex items-start gap-2">
+                      <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-green-500" />
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-gray-800">{c.titulo}</p>
+                        <p className="text-xs text-gray-500">
+                          {c.curso} · {formatDateShort(c.fecha)}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {resumen && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Asistencia por grado (mes)</CardTitle>
+              <CardDescription>Porcentaje de asistencia</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {resumen.asistenciaPorGrado.map((g) => (
+                  <div key={g.gradoId}>
+                    <div className="mb-1 flex items-center justify-between text-sm">
+                      <span className="text-gray-700">{g.grado}</span>
+                      <span className="text-xs text-gray-500">
+                        {g.ausentes} faltas · {g.porcentaje}%
+                      </span>
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-gray-100">
+                      <div
+                        className={`h-2 rounded-full ${
+                          g.porcentaje >= 90
+                            ? "bg-green-500"
+                            : g.porcentaje >= 75
+                            ? "bg-yellow-500"
+                            : "bg-red-500"
+                        }`}
+                        style={{ width: `${Math.min(g.porcentaje, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Alumnos con saldo pendiente</CardTitle>
+              <CardDescription>Mayores montos adeudados</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {resumen.morosos.length === 0 ? (
+                <p className="text-sm text-gray-500">Sin saldos pendientes.</p>
+              ) : (
+                <ul className="space-y-3">
+                  {resumen.morosos.map((m) => (
+                    <li key={m.alumnoId} className="flex items-center justify-between border-b border-gray-50 pb-2 last:border-0">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-gray-800">{m.alumno}</p>
+                        <p className="text-xs text-gray-500">
+                          {m.grado} · {m.meses} mes(es)
+                        </p>
+                      </div>
+                      <span className="ml-2 shrink-0 text-sm font-semibold text-red-600">
+                        {formatCurrency(m.monto)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">

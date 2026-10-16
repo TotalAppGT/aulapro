@@ -24,6 +24,7 @@ import {
   School,
   Bell,
   FileBarChart,
+  QrCode,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -42,6 +43,7 @@ const adminNav: NavItemDef[] = [
   { to: "/app/calificaciones", label: "Calificaciones", icon: ClipboardCheck },
   { to: "/app/tareas", label: "Tareas", icon: BookOpen },
   { to: "/app/asistencia", label: "Asistencia", icon: CalendarCheck },
+  { to: "/app/asistencia/scan", label: "Escanear QR", icon: QrCode },
   { to: "/app/anuncios", label: "Anuncios", icon: Megaphone },
   { to: "/app/notificaciones", label: "Notificaciones", icon: Bell },
   { to: "/app/usuarios", label: "Usuarios", icon: UserCircle },
@@ -53,6 +55,7 @@ const profesorNav: NavItemDef[] = [
   { to: "/app", label: "Dashboard", icon: LayoutDashboard },
   { to: "/app/cursos", label: "Mis Cursos", icon: BookOpenCheck },
   { to: "/app/calificar", label: "Calificar", icon: ClipboardCheck },
+  { to: "/app/asistencia/scan", label: "Escanear QR", icon: QrCode },
   { to: "/app/tareas", label: "Tareas", icon: BookOpen },
 ]
 

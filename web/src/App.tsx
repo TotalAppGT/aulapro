@@ -14,6 +14,7 @@ import CobranzaPage from "@/pages/admin/pagos/cobranza.page"
 import CalificacionesPage from "@/pages/admin/calificaciones.page"
 import TareasPage from "@/pages/admin/tareas.page"
 import AsistenciaPage from "@/pages/admin/asistencia.page"
+import AsistenciaScanPage from "@/pages/admin/asistencia-scan.page"
 import AnunciosPage from "@/pages/admin/anuncios.page"
 import ConfiguracionPage from "@/pages/admin/configuracion.page"
 import ReportesPage from "@/pages/admin/reportes.page"
@@ -133,6 +134,14 @@ export default function App() {
           element={
             <RoleRoute allowed={["ADMIN_COLEGIO", "PROFESOR"]}>
               <AsistenciaPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="asistencia/scan"
+          element={
+            <RoleRoute allowed={["ADMIN_COLEGIO", "PROFESOR"]}>
+              <AsistenciaScanPage />
             </RoleRoute>
           }
         />

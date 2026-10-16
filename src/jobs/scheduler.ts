@@ -1,4 +1,5 @@
 import { runDueNotifications } from '../services/notification.service';
+import { runAutoAsistencia } from '../services/asistencia.service';
 
 let interval: NodeJS.Timeout | null = null;
 
@@ -12,7 +13,16 @@ export function startScheduler(): void {
         console.log(`[Scheduler] ${count} notificacion(es) programada(s) enviadas.`);
       }
     } catch (err) {
-      console.error('[Scheduler] Error:', err);
+      console.error('[Scheduler] Error notificaciones:', err);
+    }
+
+    try {
+      const { marcados, reportes } = await runAutoAsistencia();
+      if (marcados > 0 || reportes > 0) {
+        console.log(`[Scheduler] Asistencia: ${marcados} ausentes marcados, ${reportes} reportes enviados.`);
+      }
+    } catch (err) {
+      console.error('[Scheduler] Error asistencia:', err);
     }
   };
 

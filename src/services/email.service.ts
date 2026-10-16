@@ -155,3 +155,61 @@ export async function sendPaymentConfirmationEmail(to: string, alumnoNombre: str
     console.error('[Email] sendPaymentConfirmationEmail failed:', err);
   }
 }
+
+export async function sendAttendanceReportEmail(
+  to: string,
+  data: {
+    colegio: string;
+    fecha: string;
+    responsable: string;
+    hijos: { alumno: string; grado: string }[];
+  },
+) {
+  const resend = getResend();
+  if (!resend) {
+    console.warn('[Email] RESEND_API_KEY no configurada, se omite reporte de asistencia a', to);
+    return;
+  }
+  const filas = data.hijos
+    .map(
+      (h) =>
+        `<tr><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">${h.alumno}</td><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:#6b7280">${h.grado}</td></tr>`,
+    )
+    .join('');
+  try {
+    await resend.emails.send({
+      from: RESEND_FROM_EMAIL,
+      to,
+      subject: `Aviso de inasistencia - ${data.colegio}`,
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#111827">
+          <div style="background:#dc2626;padding:20px;border-radius:12px 12px 0 0;text-align:center">
+            <h1 style="color:#fff;margin:0;font-size:20px">Aviso de Inasistencia</h1>
+          </div>
+          <div style="border:1px solid #e5e7eb;border-top:none;padding:28px;border-radius:0 0 12px 12px">
+            <p style="color:#374151;line-height:1.6">Hola ${data.responsable || ''},</p>
+            <p style="color:#374151;line-height:1.6">
+              Registramos que el dia <strong>${data.fecha}</strong> el(los) siguiente(s) alumno(s)
+              no asistieron a clases en <strong>${data.colegio}</strong>:
+            </p>
+            <table style="width:100%;border-collapse:collapse;margin:16px 0">
+              <thead><tr style="background:#f9fafb;text-align:left">
+                <th style="padding:8px 12px;color:#6b7280">Alumno</th>
+                <th style="padding:8px 12px;color:#6b7280">Grado</th>
+              </tr></thead>
+              <tbody>${filas}</tbody>
+            </table>
+            <p style="color:#374151;line-height:1.6">
+              Si la ausencia fue justificada, por favor comunicate con el colegio. Las inasistencias
+              injustificadas se toman en cuenta en la evaluacion de cada bimestre.
+            </p>
+            <p style="color:#6b7280;font-size:13px;margin-top:24px">${data.colegio} - AulaPro</p>
+          </div>
+        </div>
+      `,
+    });
+    console.log(`[Email] Reporte de asistencia enviado a ${to}`);
+  } catch (err) {
+    console.error('[Email] sendAttendanceReportEmail failed:', err);
+  }
+}

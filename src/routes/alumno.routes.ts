@@ -10,8 +10,22 @@ alumnoRoutes.use(tenantMiddleware);
 
 alumnoRoutes.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const colegioId = req.user!.colegioId;
+    const rol = req.user!.rol;
+    const where: Record<string, unknown> = { colegioId, activo: true };
+
+    if (rol === 'PADRE') {
+      where.responsableId = req.user!.userId;
+    } else if (rol === 'ALUMNO') {
+      const u = await prisma.usuario.findUnique({
+        where: { id: req.user!.userId },
+        select: { alumnoId: true },
+      });
+      where.id = u?.alumnoId || '__ninguno__';
+    }
+
     const alumnos = await prisma.alumno.findMany({
-      where: { colegioId: req.user!.colegioId, activo: true },
+      where,
       include: { grado: true, responsable: true },
       orderBy: { nombre: 'asc' },
     });

@@ -23,10 +23,10 @@ export default function NotasPage() {
   const [bimestre, setBimestre] = useState(1)
 
   const { data, isLoading } = useQuery<NotasAlumno>({
-    queryKey: ["notas-alumno", user?.id, bimestre],
+    queryKey: ["notas-alumno", user?.alumnoId, bimestre],
     queryFn: () =>
-      apiGet<NotasAlumno>(`/${user?.colegioId}/calificaciones/alumno/${user?.id}/${bimestre}`),
-    enabled: !!user?.colegioId && !!user?.id,
+      apiGet<NotasAlumno>(`/${user?.colegioId}/calificaciones/alumno/${user?.alumnoId}/${bimestre}`),
+    enabled: !!user?.colegioId && !!user?.alumnoId,
   })
 
   const notaColor = (n: number) =>

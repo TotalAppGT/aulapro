@@ -1,6 +1,7 @@
-import { Router, Request, Response, NextFunction } from 'express';
+﻿import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
+import { puedeVerAlumno } from '../lib/access';
 import { authMiddleware } from '../middleware/auth';
 import { tenantMiddleware } from '../middleware/tenant';
 import { requireRole } from '../lib/roles';
@@ -58,7 +59,7 @@ calificacionRoutes.post(
       res.status(201).json(calificacion);
     } catch (err) {
       if (err instanceof z.ZodError) {
-        res.status(400).json({ error: 'Datos inválidos', details: err.errors });
+        res.status(400).json({ error: 'Datos invÃ¡lidos', details: err.errors });
         return;
       }
       next(err);
@@ -72,6 +73,11 @@ calificacionRoutes.get(
     try {
       const { alumnoId, bimestre } = req.params;
       const colegioId = req.user!.colegioId;
+
+      if (!(await puedeVerAlumno(req.user!, alumnoId))) {
+        res.status(403).json({ error: 'No autorizado para ver este alumno' });
+        return;
+      }
 
       const calificaciones = await prisma.calificacion.findMany({
         where: { colegioId, alumnoId, bimestre: Number(bimestre) },
@@ -160,6 +166,11 @@ calificacionRoutes.get(
       const { alumnoId, bimestre } = req.params;
       const colegioId = req.user!.colegioId;
 
+      if (!(await puedeVerAlumno(req.user!, alumnoId))) {
+        res.status(403).json({ error: 'No autorizado para ver este alumno' });
+        return;
+      }
+
       const url = await generateBoletinPDF(alumnoId, colegioId, Number(bimestre));
 
       res.json({ url });
@@ -168,3 +179,4 @@ calificacionRoutes.get(
     }
   }
 );
+

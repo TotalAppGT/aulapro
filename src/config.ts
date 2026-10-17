@@ -9,6 +9,7 @@ export const JWT_SECRET = process.env.JWT_SECRET || 'aulapro-dev-secret';
 export const RECURRENTE_BASE_URL = process.env.RECURRENTE_BASE_URL || 'https://app.recurrente.com/api';
 export const RECURRENTE_SECRET_KEY = process.env.RECURRENTE_SECRET_KEY || '';
 export const RECURRENTE_ACCOUNT_ID = process.env.RECURRENTE_ACCOUNT_ID || '';
+export const RECURRENTE_WEBHOOK_SECRET = process.env.RECURRENTE_WEBHOOK_SECRET || '';
 
 export const WHATSAPP_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN || '';
 export const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_ID || '';

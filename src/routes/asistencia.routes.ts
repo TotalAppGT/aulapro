@@ -1,5 +1,6 @@
-import { Router, Request, Response, NextFunction } from 'express';
+﻿import { Router, Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma';
+import { puedeVerAlumno } from '../lib/access';
 import { authMiddleware } from '../middleware/auth';
 import { tenantMiddleware } from '../middleware/tenant';
 import { requireRole } from '../lib/roles';
@@ -159,6 +160,11 @@ asistenciaRoutes.get(
       const colegioId = req.user!.colegioId;
       const { alumnoId } = req.params;
 
+      if (!(await puedeVerAlumno(req.user!, alumnoId))) {
+        res.status(403).json({ error: 'No autorizado para ver este alumno' });
+        return;
+      }
+
       const alumno = await prisma.alumno.findFirst({
         where: { id: alumnoId, colegioId },
         select: { id: true, nombre: true, apellido: true },
@@ -212,7 +218,7 @@ asistenciaRoutes.get(
       })();
 
       if (!/^\d{4}-\d{2}$/.test(mes)) {
-        res.status(400).json({ error: 'Mes inválido. Formato: YYYY-MM' });
+        res.status(400).json({ error: 'Mes invÃ¡lido. Formato: YYYY-MM' });
         return;
       }
 
@@ -257,3 +263,4 @@ asistenciaRoutes.get(
     }
   }
 );
+

@@ -16,7 +16,7 @@ const ROLES_CREABLES = ['PROFESOR', 'PADRE', 'ALUMNO'] as const;
 const createUsuarioSchema = z.object({
   nombre: z.string().min(2).max(100),
   email: z.string().email(),
-  password: z.string().min(6).max(100),
+  password: z.string().min(8).max(100),
   rol: z.enum(ROLES_CREABLES),
   telefono: z.string().max(20).optional().nullable(),
 });
@@ -26,7 +26,7 @@ const updateUsuarioSchema = z.object({
   rol: z.enum(ROLES_CREABLES).optional(),
   telefono: z.string().max(20).optional().nullable(),
   activo: z.boolean().optional(),
-  password: z.string().min(6).max(100).optional(),
+  password: z.string().min(8).max(100).optional(),
 });
 
 usuarioRoutes.get(

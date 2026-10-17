@@ -15,7 +15,11 @@ app.use(
     origin: NODE_ENV === 'production' ? CORS_ORIGIN : true,
   })
 );
-app.use(express.json());
+app.use(express.json({
+  verify: (req, _res, buf) => {
+    (req as unknown as { rawBody?: Buffer }).rawBody = buf;
+  },
+}));
 
 app.use('/api', router);
 

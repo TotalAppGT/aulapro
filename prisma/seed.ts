@@ -129,7 +129,7 @@ async function seedColegio(cfg: SeedCfg, passwordHash: string): Promise<void> {
   const alumnoUsers: { u: any; alumno: any }[] = [];
   const nUsers = Math.min(12, alumnos.length);
   for (let i = 0; i < nUsers; i++) {
-    const u = await prisma.usuario.create({ data: { colegioId: cid, email: `alumno${i + 1}@${cfg.emailDomain}`, passwordHash, rol: 'ALUMNO', nombre: `${alumnos[i].nombre} ${alumnos[i].apellido}` } });
+    const u = await prisma.usuario.create({ data: { colegioId: cid, email: `alumno${i + 1}@${cfg.emailDomain}`, passwordHash, rol: 'ALUMNO', nombre: `${alumnos[i].nombre} ${alumnos[i].apellido}`, alumnoId: alumnos[i].id } });
     alumnoUsers.push({ u, alumno: alumnos[i] });
   }
 

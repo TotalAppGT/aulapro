@@ -1,7 +1,8 @@
-import { Router, Request, Response, NextFunction } from 'express';
+﻿import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
+import { puedeVerAlumno } from '../lib/access';
 import { generateReference } from '../lib/utils';
 import { authMiddleware } from '../middleware/auth';
 import { tenantMiddleware } from '../middleware/tenant';
@@ -28,7 +29,7 @@ pagoRoutes.post(
       const { mes } = req.body;
 
       if (!mes || !/^\d{4}-\d{2}$/.test(mes)) {
-        res.status(400).json({ error: 'Mes inválido. Formato: YYYY-MM' });
+        res.status(400).json({ error: 'Mes invÃ¡lido. Formato: YYYY-MM' });
         return;
       }
 
@@ -41,7 +42,16 @@ pagoRoutes.post(
         return;
       }
 
-      const montoBase = 350;
+      const colegio = await prisma.colegio.findUnique({
+        where: { id: colegioId },
+        select: { config: true },
+      });
+      const colegioConfig = colegio?.config;
+
+      const montoBase =
+        Number((req.body as { monto?: number } | undefined)?.monto) ||
+        Number((colegioConfig as Record<string, unknown>)?.mensualidadDefault) ||
+        350;
 
       const created: any[] = [];
       const skipped: any[] = [];
@@ -70,7 +80,7 @@ pagoRoutes.post(
       }
 
       res.status(201).json({
-        message: `Generadas ${created.length} mensualidades, ${skipped.length} ya existían`,
+        message: `Generadas ${created.length} mensualidades, ${skipped.length} ya existÃ­an`,
         created,
         skipped,
         mes,
@@ -152,7 +162,7 @@ pagoRoutes.post(
       });
     } catch (err) {
       if (err instanceof z.ZodError) {
-        res.status(400).json({ error: 'Datos inválidos', details: err.errors });
+        res.status(400).json({ error: 'Datos invÃ¡lidos', details: err.errors });
         return;
       }
       next(err);
@@ -167,13 +177,18 @@ pagoRoutes.get(
       const { alumnoId, mes } = req.params;
       const colegioId = req.user!.colegioId;
 
+      if (!(await puedeVerAlumno(req.user!, alumnoId))) {
+        res.status(403).json({ error: 'No autorizado para ver este alumno' });
+        return;
+      }
+
       const mensualidad = await prisma.mensualidad.findFirst({
         where: { colegioId, alumnoId, mes },
         include: { alumno: true },
       });
 
       if (!mensualidad) {
-        res.status(404).json({ error: 'No se encontró mensualidad para este mes' });
+        res.status(404).json({ error: 'No se encontrÃ³ mensualidad para este mes' });
         return;
       }
 
@@ -342,7 +357,7 @@ pagoRoutes.post(
 
       const telefono = mensualidad.alumno.responsable?.telefono;
       if (!telefono) {
-        res.status(400).json({ error: 'El responsable de este alumno no tiene teléfono registrado' });
+        res.status(400).json({ error: 'El responsable de este alumno no tiene telÃ©fono registrado' });
         return;
       }
 
@@ -359,7 +374,7 @@ pagoRoutes.post(
         );
         res.json({ message: 'Recordatorio enviado por WhatsApp', resultado });
       } catch (err) {
-        res.status(502).json({ error: 'No se pudo enviar el recordatorio de WhatsApp. Verifica el token y número.' });
+        res.status(502).json({ error: 'No se pudo enviar el recordatorio de WhatsApp. Verifica el token y nÃºmero.' });
       }
     } catch (err) {
       next(err);
@@ -446,3 +461,4 @@ pagoRoutes.get(
     }
   }
 );
+

@@ -12,6 +12,8 @@ interface User {
   colegioNombre: string
   colegioLogo: string | null
   avatarUrl?: string | null
+  alumnoId?: string | null
+  gradoId?: string | null
 }
 
 interface RegisterData {
@@ -32,6 +34,8 @@ interface BackendAuthResponse {
     rol: Role
     telefono?: string
     avatarUrl?: string | null
+    alumnoId?: string | null
+    gradoId?: string | null
   }
   colegio: {
     id: string
@@ -77,6 +81,8 @@ function applyAuthSession(token: string, data: BackendAuthResponse) {
     colegioNombre: data.colegio.nombre,
     colegioLogo: data.colegio.logoUrl ?? null,
     avatarUrl: data.usuario.avatarUrl,
+    alumnoId: data.usuario.alumnoId ?? null,
+    gradoId: data.usuario.gradoId ?? null,
   }
   localStorage.setItem("token", token)
   localStorage.setItem("user", JSON.stringify(user))
@@ -141,7 +147,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (!token) return
     try {
       const data = await apiGet<{
-        usuario: { id: string; email: string; nombre: string; rol: Role; colegioId: string; avatarUrl?: string | null }
+        usuario: { id: string; email: string; nombre: string; rol: Role; colegioId: string; avatarUrl?: string | null; alumnoId?: string | null; gradoId?: string | null }
         colegio: { id: string; nombre: string; logoUrl?: string | null }
       }>("/auth/me")
       const user: User = {
@@ -153,6 +159,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         colegioNombre: data.colegio.nombre,
         colegioLogo: data.colegio.logoUrl ?? null,
         avatarUrl: data.usuario.avatarUrl,
+        alumnoId: data.usuario.alumnoId ?? null,
+        gradoId: data.usuario.gradoId ?? null,
       }
       localStorage.setItem("user", JSON.stringify(user))
       set({ user })

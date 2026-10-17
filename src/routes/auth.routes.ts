@@ -10,10 +10,35 @@ import { sendWelcomeEmail } from '../services/email.service';
 
 export const authRoutes = Router();
 
+// Rate limiting sencillo en memoria para login/registro (anti fuerza bruta)
+const intentos = new Map<string, { count: number; reset: number }>();
+
+function limitarIntentos(max: number, windowMs: number) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const email = String((req.body && (req.body.email || req.body.idToken)) || '').slice(0, 120);
+    const key = `${req.ip || req.socket.remoteAddress || 'ip'}:${email}`;
+    const now = Date.now();
+    const rec = intentos.get(key);
+    if (!rec || now > rec.reset) {
+      intentos.set(key, { count: 1, reset: now + windowMs });
+      next();
+      return;
+    }
+    rec.count += 1;
+    if (rec.count > max) {
+      res.status(429).json({ error: 'Demasiados intentos. Intenta de nuevo en 15 minutos.' });
+      return;
+    }
+    next();
+  };
+}
+
+const authLimiter = limitarIntentos(10, 15 * 60 * 1000);
+
 const registroSchema = z.object({
   nombreColegio: z.string().min(2).max(100),
   email: z.string().email(),
-  password: z.string().min(6).max(100),
+  password: z.string().min(8).max(100),
   nombre: z.string().min(2).max(100),
   telefono: z.string().max(20).optional(),
 });
@@ -30,7 +55,7 @@ const firebaseLoginSchema = z.object({
   telefono: z.string().max(20).optional(),
 });
 
-authRoutes.post('/firebase', async (req: Request, res: Response, next: NextFunction) => {
+authRoutes.post('/firebase', authLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const body = firebaseLoginSchema.parse(req.body);
 
@@ -42,7 +67,7 @@ authRoutes.post('/firebase', async (req: Request, res: Response, next: NextFunct
 
     const existingUser = await prisma.usuario.findUnique({
       where: { email: claims.email },
-      include: { colegio: true },
+      include: { colegio: true, alumno: { select: { id: true, gradoId: true } } },
     });
 
     if (existingUser) {
@@ -60,6 +85,8 @@ authRoutes.post('/firebase', async (req: Request, res: Response, next: NextFunct
           rol: existingUser.rol,
           telefono: existingUser.telefono,
           avatarUrl: existingUser.avatarUrl,
+          alumnoId: existingUser.alumnoId,
+          gradoId: existingUser.alumno?.gradoId ?? null,
         },
         colegio: {
           id: existingUser.colegio.id,
@@ -131,7 +158,7 @@ authRoutes.post('/firebase', async (req: Request, res: Response, next: NextFunct
   }
 });
 
-authRoutes.post('/registro', async (req: Request, res: Response, next: NextFunction) => {
+authRoutes.post('/registro', authLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const body = registroSchema.parse(req.body);
 
@@ -198,13 +225,13 @@ authRoutes.post('/registro', async (req: Request, res: Response, next: NextFunct
   }
 });
 
-authRoutes.post('/login', async (req: Request, res: Response, next: NextFunction) => {
+authRoutes.post('/login', authLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const body = loginSchema.parse(req.body);
 
     const usuario = await prisma.usuario.findUnique({
       where: { email: body.email },
-      include: { colegio: true },
+      include: { colegio: true, alumno: { select: { id: true, gradoId: true } } },
     });
 
     if (!usuario || !usuario.activo) {
@@ -229,6 +256,8 @@ authRoutes.post('/login', async (req: Request, res: Response, next: NextFunction
         rol: usuario.rol,
         telefono: usuario.telefono,
         avatarUrl: usuario.avatarUrl,
+        alumnoId: usuario.alumnoId,
+        gradoId: usuario.alumno?.gradoId ?? null,
       },
       colegio: {
         id: usuario.colegio.id,
@@ -251,7 +280,7 @@ authRoutes.get('/me', authMiddleware, async (req: Request, res: Response, next: 
   try {
     const usuario = await prisma.usuario.findUnique({
       where: { id: req.user!.userId },
-      include: { colegio: true },
+      include: { colegio: true, alumno: { select: { id: true, gradoId: true } } },
     });
 
     if (!usuario) {
@@ -268,6 +297,8 @@ authRoutes.get('/me', authMiddleware, async (req: Request, res: Response, next: 
         telefono: usuario.telefono,
         avatarUrl: usuario.avatarUrl,
         colegioId: usuario.colegioId,
+        alumnoId: usuario.alumnoId,
+        gradoId: usuario.alumno?.gradoId ?? null,
       },
       colegio: {
         id: usuario.colegio.id,
@@ -286,3 +317,4 @@ authRoutes.get('/me', authMiddleware, async (req: Request, res: Response, next: 
     next(err);
   }
 });
+

@@ -20,12 +20,13 @@ interface Tarea {
   materia: string
   descripcion: string | null
   fechaEntrega: string
-  creador: { id: string; nombre: string }
-  _count: { entregas: number }
+  creador?: { id: string; nombre: string }
+  _count?: { entregas: number }
 }
 
 export default function TareasPage() {
   const user = useAuthStore((s) => s.user)
+  const esAlumno = user?.rol === "ALUMNO"
   const queryClient = useQueryClient()
   const [gradoId, setGradoId] = useState("")
   const [showForm, setShowForm] = useState(false)
@@ -43,9 +44,12 @@ export default function TareasPage() {
   })
 
   const { data: tareas, isLoading } = useQuery<Tarea[]>({
-    queryKey: ["tareas", user?.colegioId, gradoId],
-    queryFn: () => apiGet<Tarea[]>(`/${user?.colegioId}/tareas/grado/${gradoId}`),
-    enabled: !!user?.colegioId && !!gradoId,
+    queryKey: ["tareas", user?.colegioId, esAlumno ? user?.alumnoId : gradoId],
+    queryFn: () =>
+      esAlumno
+        ? apiGet<Tarea[]>(`/${user?.colegioId}/tareas/alumno/${user?.alumnoId}`)
+        : apiGet<Tarea[]>(`/${user?.colegioId}/tareas/grado/${gradoId}`),
+    enabled: !!user?.colegioId && (esAlumno ? !!user?.alumnoId : !!gradoId),
   })
 
   const createMutation = useMutation({
@@ -72,22 +76,26 @@ export default function TareasPage() {
           <p className="text-sm text-gray-500">Asigna tareas por grado</p>
         </div>
         <div className="flex gap-2">
-          <select
-            value={gradoId}
-            onChange={(e) => setGradoId(e.target.value)}
-            className="h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700"
-          >
-            <option value="">Selecciona un grado</option>
-            {(grados ?? []).map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.nombre}
-              </option>
-            ))}
-          </select>
-          <Button disabled={!gradoId} onClick={() => setShowForm(!showForm)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nueva Tarea
-          </Button>
+          {!esAlumno && (
+            <>
+              <select
+                value={gradoId}
+                onChange={(e) => setGradoId(e.target.value)}
+                className="h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700"
+              >
+                <option value="">Selecciona un grado</option>
+                {(grados ?? []).map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.nombre}
+                  </option>
+                ))}
+              </select>
+              <Button disabled={!gradoId} onClick={() => setShowForm(!showForm)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nueva Tarea
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -151,7 +159,7 @@ export default function TareasPage() {
         </Card>
       )}
 
-      {!gradoId ? (
+      {!esAlumno && !gradoId ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <BookOpen className="h-12 w-12 text-gray-300" />
@@ -189,8 +197,8 @@ export default function TareasPage() {
                       <Calendar className="h-3.5 w-3.5" />
                       Entrega: {formatDateShort(tarea.fechaEntrega)}
                     </span>
-                    <span>Por: {tarea.creador.nombre}</span>
-                    <span>{tarea._count.entregas} entregas</span>
+                    <span>Por: {tarea.creador?.nombre ?? "-"}</span>
+                    {tarea._count ? <span>{tarea._count.entregas} entregas</span> : null}
                   </div>
                 </div>
               </CardContent>

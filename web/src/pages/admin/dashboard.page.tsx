@@ -86,73 +86,6 @@ function getMonthOptions() {
   return options
 }
 
-const mockStats: DashboardStats = {
-  totalAlumnos: 245,
-  pagosDelMes: 198,
-  totalRecaudado: 44550,
-  totalPendiente: 10575,
-  moraActual: 2350,
-  porcentajeCompletado: 80.8,
-  proximaFechaCobro: new Date(
-    new Date().getFullYear(),
-    new Date().getMonth() + 1,
-    1
-  ).toISOString(),
-  comisionDelMes: 1782,
-}
-
-const mockPagosRecientes: PagoReciente[] = [
-  {
-    id: "1",
-    alumnoNombre: "Maria Garcia",
-    gradoNombre: "3ro Basico A",
-    monto: 225,
-    fecha: new Date().toISOString(),
-    estado: "pagado",
-  },
-  {
-    id: "2",
-    alumnoNombre: "Carlos Perez",
-    gradoNombre: "5to Primaria B",
-    monto: 225,
-    fecha: new Date(Date.now() - 86400000).toISOString(),
-    estado: "pagado",
-  },
-  {
-    id: "3",
-    alumnoNombre: "Ana Lopez",
-    gradoNombre: "2do Basico A",
-    monto: 225,
-    fecha: new Date(Date.now() - 86400000 * 2).toISOString(),
-    estado: "pagado",
-  },
-  {
-    id: "4",
-    alumnoNombre: "Jose Mendez",
-    gradoNombre: "1ro Primaria C",
-    monto: 225,
-    fecha: new Date(Date.now() - 86400000 * 2).toISOString(),
-    estado: "pendiente",
-  },
-  {
-    id: "5",
-    alumnoNombre: "Luisa Ramirez",
-    gradoNombre: "3ro Basico B",
-    monto: 225,
-    fecha: new Date(Date.now() - 86400000 * 5).toISOString(),
-    estado: "vencido",
-  },
-]
-
-const mockHistorial: MesPago[] = [
-  { mes: "2026-02", recaudado: 41000, pendiente: 8580 },
-  { mes: "2026-03", recaudado: 42500, pendiente: 9100 },
-  { mes: "2026-04", recaudado: 39800, pendiente: 10200 },
-  { mes: "2026-05", recaudado: 43200, pendiente: 11000 },
-  { mes: "2026-06", recaudado: 44000, pendiente: 10800 },
-  { mes: "2026-07", recaudado: 44550, pendiente: 10575 },
-]
-
 export default function AdminDashboardPage() {
   const user = useAuthStore((s) => s.user)
   const [selectedMonth, setSelectedMonth] = useState(
@@ -169,7 +102,16 @@ export default function AdminDashboardPage() {
     staleTime: 30000,
   })
 
-  const displayStats = stats ?? mockStats
+  const displayStats = stats ?? {
+    totalAlumnos: 0,
+    pagosDelMes: 0,
+    totalRecaudado: 0,
+    totalPendiente: 0,
+    moraActual: 0,
+    porcentajeCompletado: 0,
+    proximaFechaCobro: new Date().toISOString(),
+    comisionDelMes: 0,
+  }
 
   const { data: historial } = useQuery<MesPago[]>({
     queryKey: ["admin-historial", user?.colegioId],
@@ -211,12 +153,12 @@ export default function AdminDashboardPage() {
         fecha: c.fechaPago as string,
         estado: c.estado,
       }))
-    return real.length > 0 ? real : mockPagosRecientes
+    return real
   }, [pagosRecientes])
 
   const maxRecaudado = useMemo(() => {
-    const h = historial ?? mockHistorial
-    return Math.max(...h.map((m) => Math.max(m.recaudado, m.pendiente)))
+    const h = historial ?? []
+    return Math.max(1, ...h.map((m) => Math.max(m.recaudado, m.pendiente)))
   }, [historial])
 
   const monthOptions = getMonthOptions()
@@ -482,7 +424,7 @@ export default function AdminDashboardPage() {
           <CardContent>
             <div className="h-64">
               <div className="flex h-full items-end gap-4">
-                {(historial ?? mockHistorial).map((mes, i) => {
+                {(historial ?? []).map((mes, i) => {
                   const [, month] = mes.mes.split("-")
                   const label = MONTHS_ES[parseInt(month) - 1].slice(0, 3)
                   const recaudadoHeight =

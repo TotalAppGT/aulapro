@@ -1,5 +1,6 @@
-import { Router, Request, Response, NextFunction } from 'express';
+﻿import { Router, Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma';
+import { planDe } from '../lib/planes';
 import { authMiddleware } from '../middleware/auth';
 import { tenantMiddleware } from '../middleware/tenant';
 
@@ -38,6 +39,24 @@ alumnoRoutes.get('/', async (req: Request, res: Response, next: NextFunction) =>
 alumnoRoutes.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { codigo, cui, nombre, apellido, gradoId, fechaNacimiento, direccion, responsableId } = req.body;
+
+    const colegio = await prisma.colegio.findUnique({
+      where: { id: req.user!.colegioId },
+      select: { plan: true },
+    });
+    const limite = planDe(colegio?.plan).maxAlumnos;
+    if (limite !== null) {
+      const actuales = await prisma.alumno.count({
+        where: { colegioId: req.user!.colegioId, activo: true },
+      });
+      if (actuales >= limite) {
+        res.status(403).json({
+          error: `Límite del plan alcanzado (${limite} alumnos). Actualiza tu plan para agregar más.`,
+        });
+        return;
+      }
+    }
+
     const alumno = await prisma.alumno.create({
       data: {
         colegioId: req.user!.colegioId,
@@ -72,3 +91,4 @@ alumnoRoutes.get('/:id', async (req: Request, res: Response, next: NextFunction)
     next(err);
   }
 });
+

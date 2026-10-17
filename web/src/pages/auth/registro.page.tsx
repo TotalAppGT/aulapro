@@ -61,6 +61,10 @@ export default function RegistroPage() {
     confirmPassword: "",
   })
 
+  const [codigoReferido, setCodigoReferido] = useState(
+    new URLSearchParams(window.location.search).get("ref") ?? ""
+  )
+
   const validateStep1 = (): boolean => {
     const errs: FieldErrors = {}
     if (!colegio.nombre.trim()) errs.nombre = "El nombre del colegio es requerido"
@@ -119,6 +123,7 @@ export default function RegistroPage() {
         email: admin.email,
         password: admin.password,
         telefono: colegio.telefono,
+        codigoReferido: codigoReferido.trim() || undefined,
       })
       setStep(3)
     } catch (err: unknown) {
@@ -354,6 +359,20 @@ export default function RegistroPage() {
                         {errors.confirmPassword}
                       </p>
                     )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">
+                      Codigo de afiliado (opcional)
+                    </label>
+                    <Input
+                      placeholder="Ej: TOTALAPP"
+                      value={codigoReferido}
+                      onChange={(e) => setCodigoReferido(e.target.value)}
+                    />
+                    <p className="text-xs text-gray-400">
+                      Si te recomendó alguien, ingresa su código.
+                    </p>
                   </div>
                 </div>
                 <div className="mt-6 flex justify-between">

@@ -75,6 +75,7 @@ model Colegio {
   trialEndsAt             DateTime?
   recurrenteAccountId     String?
   stripeSubscriptionId    String?
+  afiliadoId              String?
   config                  Json          @default("{}")
   createdAt               DateTime      @default(now())
   updatedAt               DateTime      @updatedAt
@@ -101,6 +102,9 @@ model Colegio {
   evaluaciones Evaluacion[]
   intentosEvaluacion IntentoEvaluacion[]
 
+  afiliado     Afiliado?          @relation(fields: [afiliadoId], references: [id])
+  comisionesAfiliado ComisionAfiliado[]
+
   @@index([emailAdmin])
   @@index([estado])
 }
@@ -119,7 +123,7 @@ model Usuario {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
-  colegio            Colegio         @relation(fields: [colegioId], references: [id])
+  colegio       Colegio         @relation(fields: [colegioId], references: [id])
   alumno             Alumno?         @relation("UsuarioAlumno", fields: [alumnoId], references: [id])
   gradoGuia          Grado[]
   materiasImparte    Materia[]
@@ -593,4 +597,36 @@ model IntentoEvaluacion {
   usuario      Usuario    @relation(fields: [usuarioId], references: [id])
 
   @@index([evaluacionId, usuarioId])
+}
+
+model Afiliado {
+  id           String   @id @default(cuid())
+  nombre       String
+  email        String   @unique
+  passwordHash String
+  codigo       String   @unique
+  comisionPct  Float    @default(25)
+  activo       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  colegios   Colegio[]
+  comisiones ComisionAfiliado[]
+
+  @@index([codigo])
+}
+
+model ComisionAfiliado {
+  id         String   @id @default(cuid())
+  afiliadoId String
+  colegioId  String
+  periodo    String
+  monto      Float
+  estado     String   @default("PENDIENTE")
+  createdAt  DateTime @default(now())
+
+  afiliado Afiliado @relation(fields: [afiliadoId], references: [id])
+  colegio  Colegio  @relation(fields: [colegioId], references: [id])
+
+  @@unique([afiliadoId, colegioId, periodo])
+  @@index([afiliadoId, periodo])
 }

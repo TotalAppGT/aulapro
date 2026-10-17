@@ -1,7 +1,8 @@
-import { Router, Request, Response, NextFunction } from 'express';
+﻿import { Router, Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
+import { planDe } from '../lib/planes';
 import { authMiddleware } from '../middleware/auth';
 import { tenantMiddleware } from '../middleware/tenant';
 import { requireRole } from '../lib/roles';
@@ -65,6 +66,21 @@ usuarioRoutes.post(
       const body = createUsuarioSchema.parse(req.body);
       const colegioId = req.user!.colegioId;
 
+      const colegio = await prisma.colegio.findUnique({
+        where: { id: colegioId },
+        select: { plan: true },
+      });
+      const limite = planDe(colegio?.plan).maxUsuarios;
+      if (limite !== null) {
+        const actuales = await prisma.usuario.count({ where: { colegioId } });
+        if (actuales >= limite) {
+          res.status(403).json({
+            error: `Límite de usuarios del plan alcanzado (${limite}). Actualiza tu plan para agregar más.`,
+          });
+          return;
+        }
+      }
+
       const existing = await prisma.usuario.findFirst({
         where: { colegioId, email: body.email },
       });
@@ -99,7 +115,7 @@ usuarioRoutes.post(
       res.status(201).json(usuario);
     } catch (err) {
       if (err instanceof z.ZodError) {
-        res.status(400).json({ error: 'Datos inválidos', details: err.errors });
+        res.status(400).json({ error: 'Datos invÃ¡lidos', details: err.errors });
         return;
       }
       next(err);
@@ -153,10 +169,11 @@ usuarioRoutes.patch(
       res.json(usuario);
     } catch (err) {
       if (err instanceof z.ZodError) {
-        res.status(400).json({ error: 'Datos inválidos', details: err.errors });
+        res.status(400).json({ error: 'Datos invÃ¡lidos', details: err.errors });
         return;
       }
       next(err);
     }
   }
 );
+

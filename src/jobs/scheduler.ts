@@ -1,7 +1,9 @@
 import { runDueNotifications } from '../services/notification.service';
 import { runAutoAsistencia } from '../services/asistencia.service';
+import { generarComisionesAfiliados } from '../services/afiliado.service';
 
 let interval: NodeJS.Timeout | null = null;
+let ultimoDiaComision = '';
 
 export function startScheduler(): void {
   if (interval) return;
@@ -23,6 +25,17 @@ export function startScheduler(): void {
       }
     } catch (err) {
       console.error('[Scheduler] Error asistencia:', err);
+    }
+
+    try {
+      const hoyKey = new Date().toISOString().slice(0, 10);
+      if (ultimoDiaComision !== hoyKey) {
+        ultimoDiaComision = hoyKey;
+        const n = await generarComisionesAfiliados();
+        if (n > 0) console.log(`[Scheduler] Comisiones de afiliados calculadas: ${n}`);
+      }
+    } catch (err) {
+      console.error('[Scheduler] Error comisiones afiliados:', err);
     }
   };
 

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authRoutes } from './auth.routes';
+import { afiliadoRoutes } from './afiliado.routes';
 import { colegioRoutes } from './colegio.routes';
 import { alumnoRoutes } from './alumno.routes';
 import { gradoRoutes } from './grado.routes';
@@ -28,6 +29,7 @@ router.get('/health', (_req, res) => {
 });
 
 router.use('/auth', authRoutes);
+router.use('/afiliados', afiliadoRoutes);
 router.use(colegioRoutes);
 router.use('/:colegioId/alumnos', alumnoRoutes);
 router.use('/:colegioId/grados', gradoRoutes);

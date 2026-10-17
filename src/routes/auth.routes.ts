@@ -7,6 +7,7 @@ import { jwtSign } from '../lib/utils';
 import { authMiddleware } from '../middleware/auth';
 import { verifyIdToken } from '../services/firebase.service';
 import { sendWelcomeEmail } from '../services/email.service';
+import { validarCodigo } from '../services/afiliado.service';
 
 export const authRoutes = Router();
 
@@ -41,6 +42,7 @@ const registroSchema = z.object({
   password: z.string().min(8).max(100),
   nombre: z.string().min(2).max(100),
   telefono: z.string().max(20).optional(),
+  codigoReferido: z.string().max(30).optional(),
 });
 
 const loginSchema = z.object({
@@ -53,6 +55,7 @@ const firebaseLoginSchema = z.object({
   nombreColegio: z.string().min(2).max(100).optional(),
   nombre: z.string().min(2).max(100).optional(),
   telefono: z.string().max(20).optional(),
+  codigoReferido: z.string().max(30).optional(),
 });
 
 authRoutes.post('/firebase', authLimiter, async (req: Request, res: Response, next: NextFunction) => {
@@ -107,6 +110,8 @@ authRoutes.post('/firebase', authLimiter, async (req: Request, res: Response, ne
     const trialEndsAt = new Date();
     trialEndsAt.setDate(trialEndsAt.getDate() + 14);
 
+    const afiliado = await validarCodigo(body.codigoReferido);
+
     const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const colegio = await tx.colegio.create({
         data: {
@@ -114,6 +119,7 @@ authRoutes.post('/firebase', authLimiter, async (req: Request, res: Response, ne
           emailAdmin: claims.email!,
           estado: 'TRIAL',
           trialEndsAt,
+          afiliadoId: afiliado?.id ?? null,
         },
       });
 
@@ -173,6 +179,8 @@ authRoutes.post('/registro', authLimiter, async (req: Request, res: Response, ne
 
     const passwordHash = await bcrypt.hash(body.password, 10);
 
+    const afiliado = await validarCodigo(body.codigoReferido);
+
     const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const colegio = await tx.colegio.create({
         data: {
@@ -180,6 +188,7 @@ authRoutes.post('/registro', authLimiter, async (req: Request, res: Response, ne
           emailAdmin: body.email,
           estado: 'TRIAL',
           trialEndsAt,
+          afiliadoId: afiliado?.id ?? null,
         },
       });
 

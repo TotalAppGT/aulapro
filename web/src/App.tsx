@@ -29,6 +29,8 @@ import NotasPage from "@/pages/alumno/notas.page"
 import HorarioPage from "@/pages/alumno/horario.page"
 import PagarPage from "@/pages/pagar/pagar.page"
 import CursoDetallePage from "@/pages/curso/curso-detalle.page"
+import AfiliadoLoginPage from "@/pages/afiliado/login.page"
+import AfiliadoPanelPage from "@/pages/afiliado/panel.page"
 
 function RootRoute() {
   const user = useAuthStore((s) => s.user)
@@ -71,6 +73,8 @@ export default function App() {
       <Route path="/" element={<RootRoute />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/registro" element={<RegistroPage />} />
+      <Route path="/afiliado/login" element={<AfiliadoLoginPage />} />
+      <Route path="/afiliado" element={<AfiliadoPanelPage />} />
       <Route
         path="/app/pagar"
         element={

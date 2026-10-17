@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { planDe } from '../src/lib/planes';
 
 const prisma = new PrismaClient();
 
@@ -56,6 +57,7 @@ async function resetColegio(colegioId: string): Promise<void> {
   await prisma.horario.deleteMany({ where: { colegioId } });
   await prisma.mensualidad.deleteMany({ where: { colegioId } });
   await prisma.pagoCheckout.deleteMany({ where: { colegioId } });
+  await prisma.comisionAfiliado.deleteMany({ where: { colegioId } });
   await prisma.alumno.deleteMany({ where: { colegioId } });
   await prisma.materia.deleteMany({ where: { colegioId } });
   await prisma.grado.deleteMany({ where: { colegioId } });
@@ -325,6 +327,25 @@ async function main() {
   await seedColegio(MAIN, passwordHash);
   await seedColegio(SECUNDARIO, passwordHash);
 
+  // Programa de afiliados (demo)
+  const afiliado = await prisma.afiliado.upsert({
+    where: { email: 'afiliado@totalappgt.com' },
+    update: { nombre: 'Afiliado Demo', codigo: 'TOTALAPP', activo: true },
+    create: { nombre: 'Afiliado Demo', email: 'afiliado@totalappgt.com', passwordHash, codigo: 'TOTALAPP', comisionPct: 25 },
+  });
+
+  const nowD = new Date();
+  const periodo = `${nowD.getFullYear()}-${String(nowD.getMonth() + 1).padStart(2, '0')}`;
+  for (const email of [MAIN.emailAdmin, SECUNDARIO.emailAdmin]) {
+    const col = await prisma.colegio.findFirst({ where: { emailAdmin: email } });
+    if (!col) continue;
+    await prisma.colegio.update({ where: { id: col.id }, data: { afiliadoId: afiliado.id } });
+    const monto = Math.round(planDe(col.plan).precio * (afiliado.comisionPct / 100) * 100) / 100;
+    await prisma.comisionAfiliado.create({
+      data: { afiliadoId: afiliado.id, colegioId: col.id, periodo, monto },
+    });
+  }
+
   console.log('=== Seed completado ===');
   const counts: Record<string, number> = {
     Colegios: await prisma.colegio.count(),
@@ -350,6 +371,7 @@ async function main() {
   console.log('  Profesor:         profesor1@demo.edu.gt');
   console.log('  Padre:            padre1@demo.edu.gt');
   console.log('  Alumno:           alumno1@demo.edu.gt');
+  console.log('  Afiliado demo:    afiliado@totalappgt.com / admintotal  (codigo: TOTALAPP)');
 }
 
 main()

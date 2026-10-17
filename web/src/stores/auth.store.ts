@@ -1,7 +1,7 @@
 import { create } from "zustand"
 import { apiGet, apiPost } from "@/lib/api"
 
-export type Role = "SUPERADMIN" | "ADMIN_COLEGIO" | "PROFESOR" | "PADRE" | "ALUMNO"
+export type Role = "SUPERADMIN" | "ADMIN_COLEGIO" | "PROFESOR" | "PADRE" | "ALUMNO" | "AFILIADO"
 
 interface User {
   id: string
@@ -23,6 +23,7 @@ interface RegisterData {
   password: string
   telefono?: string
   direccion?: string
+  codigoReferido?: string
 }
 
 interface BackendAuthResponse {
@@ -51,6 +52,7 @@ interface AuthState {
   token: string | null
   loading: boolean
   login: (email: string, password: string) => Promise<void>
+  loginAfiliado: (email: string, password: string) => Promise<void>
   register: (data: RegisterData) => Promise<void>
   logout: () => Promise<void>
   loadFromStorage: () => void
@@ -105,6 +107,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
+  loginAfiliado: async (email: string, password: string) => {
+    set({ loading: true })
+    try {
+      const data = await apiPost<BackendAuthResponse & { codigo?: string }>("/afiliados/login", {
+        email,
+        password,
+      })
+      const { user, token } = applyAuthSession(data.token, data)
+      set({ user, token })
+    } finally {
+      set({ loading: false })
+    }
+  },
+
   register: async (data: RegisterData) => {
     set({ loading: true })
     try {
@@ -114,6 +130,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         email: data.email,
         password: data.password,
         telefono: data.telefono,
+        codigoReferido: data.codigoReferido,
       })
       const { user, token } = applyAuthSession(result.token, result)
       set({ user, token })

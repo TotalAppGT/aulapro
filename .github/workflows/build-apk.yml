@@ -41,6 +41,9 @@ jobs:
         working-directory: mobile
         run: npx cap add android || true
 
+      - name: Aplicar branding (iconos y splash)
+        run: bash mobile/branding/apply-brand.sh
+
       - name: Sync Capacitor
         working-directory: mobile
         env:

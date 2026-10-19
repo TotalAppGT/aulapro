@@ -27,6 +27,7 @@ if (NODE_ENV === 'production') {
   const webDist = path.resolve(__dirname, '../web/dist');
   if (fs.existsSync(webDist)) {
     app.use(express.static(webDist, {
+      dotfiles: 'allow',
       setHeaders(res, filePath) {
         if (filePath.endsWith('index.html')) {
           res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');

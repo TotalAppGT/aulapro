@@ -19,6 +19,14 @@ const queryClient = new QueryClient({
 
 useAuthStore.getState().loadFromStorage()
 
+if ("serviceWorker" in navigator && import.meta.env.PROD) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      /* sin service worker */
+    })
+  })
+}
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>

@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android Release
 
 on:
   workflow_dispatch:
@@ -15,6 +15,22 @@ on:
         description: "URL del sistema"
         required: false
         default: "https://aulapro.totalappgt.com"
+      version_name:
+        description: "Version name (ej. 1.0.1)"
+        required: false
+        default: "1.0"
+      version_code:
+        description: "Version code (vacio = numero de run)"
+        required: false
+        default: ""
+      publish_to_play:
+        description: "Publicar en Play (internal)"
+        type: boolean
+        required: false
+        default: false
+  push:
+    tags:
+      - "app-v*"
 
 jobs:
   build:
@@ -37,29 +53,76 @@ jobs:
         working-directory: mobile
         run: npm install
 
-      - name: Agregar plataforma Android
+      - name: Crear proyecto Android
         working-directory: mobile
         run: npx cap add android || true
 
       - name: Aplicar branding (iconos y splash)
         run: bash mobile/branding/apply-brand.sh
 
+      - name: Configurar firma (keystore)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::Falta el secret KEYSTORE_BASE64"
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > mobile/android/aulapro-release.keystore
+          cat > mobile/android/keystore.properties <<EOF
+          storeFile=../aulapro-release.keystore
+          storePassword=${KEYSTORE_PASSWORD}
+          keyAlias=${KEY_ALIAS}
+          keyPassword=${KEY_PASSWORD}
+          EOF
+          cp mobile/ci/signing.gradle mobile/android/app/signing.gradle
+          printf '\napply from: "signing.gradle"\n' >> mobile/android/app/build.gradle
+
+      - name: Ajustar version
+        run: |
+          VCODE="${{ inputs.version_code }}"
+          if [ -z "$VCODE" ]; then VCODE="${{ github.run_number }}"; fi
+          VNAME="${{ inputs.version_name }}"
+          if [ -z "$VNAME" ]; then VNAME="1.0"; fi
+          sed -i "s/versionCode 1/versionCode $VCODE/" mobile/android/app/build.gradle
+          sed -i "s/versionName \"1.0\"/versionName \"$VNAME\"/" mobile/android/app/build.gradle
+          echo "versionCode=$VCODE versionName=$VNAME"
+
       - name: Sync Capacitor
         working-directory: mobile
         env:
-          APP_ID: ${{ inputs.app_id }}
-          APP_NAME: ${{ inputs.app_name }}
-          APP_URL: ${{ inputs.app_url }}
+          APP_ID: ${{ inputs.app_id || 'com.totalappgt.aulapro' }}
+          APP_NAME: ${{ inputs.app_name || 'AulaPro' }}
+          APP_URL: ${{ inputs.app_url || 'https://aulapro.totalappgt.com' }}
         run: npx cap sync android
 
-      - name: Compilar APK (debug)
+      - name: Compilar release (AAB + APK)
         working-directory: mobile/android
         run: |
           chmod +x ./gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew bundleRelease assembleRelease --no-daemon
+
+      - name: Subir AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: aulapro-release-aab
+          path: mobile/android/app/build/outputs/bundle/release/app-release.aab
 
       - name: Subir APK
         uses: actions/upload-artifact@v4
         with:
-          name: aulapro-debug-apk
-          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          name: aulapro-release-apk
+          path: mobile/android/app/build/outputs/apk/release/app-release.apk
+
+      - name: Publicar en Play (internal)
+        if: ${{ inputs.publish_to_play == true }}
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: ${{ inputs.app_id || 'com.totalappgt.aulapro' }}
+          releaseFiles: mobile/android/app/build/outputs/bundle/release/app-release.aab
+          track: internal
+          status: completed

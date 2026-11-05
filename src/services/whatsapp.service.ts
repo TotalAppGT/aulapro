@@ -66,6 +66,15 @@ export async function sendDocument(
   return result.raw;
 }
 
+function sanitizeParam(text: string): string {
+  // Meta rechaza parametros con saltos de linea, tabs o mas de 4 espacios seguidos.
+  return String(text || '')
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+    .slice(0, 900);
+}
+
 export async function enviarPlantillaAlerta(telefono: string, sistema: string, mensaje: string) {
   const result = await postWhatsApp({
     messaging_product: 'whatsapp',
@@ -79,8 +88,8 @@ export async function enviarPlantillaAlerta(telefono: string, sistema: string, m
         {
           type: 'body',
           parameters: [
-            { type: 'text', parameter_name: 'sistema', text: sistema },
-            { type: 'text', parameter_name: 'mensaje', text: mensaje },
+            { type: 'text', parameter_name: 'sistema', text: sanitizeParam(sistema) },
+            { type: 'text', parameter_name: 'mensaje', text: sanitizeParam(mensaje) },
           ],
         },
       ],
@@ -95,7 +104,7 @@ export async function enviarPlantillaAlerta(telefono: string, sistema: string, m
 }
 
 export async function sendTemplateMessage(to: string, titulo: string, mensaje: string) {
-  const cuerpo = `📢 ${titulo}\n\n${mensaje}`;
+  const cuerpo = `${titulo}: ${mensaje}`;
   return enviarPlantillaAlerta(to, SISTEMA_NOMBRE, cuerpo);
 }
 

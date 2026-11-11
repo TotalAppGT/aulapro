@@ -1,9 +1,11 @@
 import { runDueNotifications } from '../services/notification.service';
 import { runAutoAsistencia } from '../services/asistencia.service';
 import { generarComisionesAfiliados } from '../services/afiliado.service';
+import { procesarVencimientos } from '../lib/vencimientos';
 
 let interval: NodeJS.Timeout | null = null;
 let ultimoDiaComision = '';
+let ultimaHoraVencimiento = '';
 
 export function startScheduler(): void {
   if (interval) return;
@@ -36,6 +38,19 @@ export function startScheduler(): void {
       }
     } catch (err) {
       console.error('[Scheduler] Error comisiones afiliados:', err);
+    }
+
+    try {
+      const horaKey = new Date().toISOString().slice(0, 13);
+      if (ultimaHoraVencimiento !== horaKey) {
+        ultimaHoraVencimiento = horaKey;
+        const { avisos, suspendidos } = await procesarVencimientos();
+        if (avisos > 0 || suspendidos > 0) {
+          console.log(`[Scheduler] Vencimientos: ${suspendidos} suspendidos, ${avisos} avisos.`);
+        }
+      }
+    } catch (err) {
+      console.error('[Scheduler] Error vencimientos:', err);
     }
   };
 

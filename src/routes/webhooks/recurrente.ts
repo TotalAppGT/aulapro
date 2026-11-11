@@ -5,6 +5,7 @@ import { prisma } from '../../lib/prisma';
 import { sendTemplateMessage } from '../../services/whatsapp.service';
 import { sendPaymentConfirmationEmail } from '../../services/email.service';
 import { RECURRENTE_WEBHOOK_SECRET } from '../../config';
+import { extenderVigencia } from '../../lib/vencimientos';
 
 export const webhookRoutes = Router();
 
@@ -90,14 +91,8 @@ webhookRoutes.post('/recurrente', async (req: Request, res: Response, next: Next
         ['paid', 'succeeded', 'completed', 'active'].includes(estadoData);
 
       if (colegioId && activo && !inactivo) {
-        await prisma.colegio.update({
-          where: { id: colegioId },
-          data: {
-            estado: 'ACTIVE',
-            trialEndsAt: null,
-            ...(plan ? { plan: plan as any } : {}),
-          },
-        });
+        const ciclo = String(checkoutData.metadata.ciclo || 'mensual').toLowerCase() === 'anual' ? 'anual' : 'mensual';
+        await extenderVigencia(colegioId, ciclo, plan);
       } else if (colegioId && inactivo) {
         await prisma.colegio.update({
           where: { id: colegioId },

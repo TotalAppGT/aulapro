@@ -79,6 +79,35 @@ webhookRoutes.post('/recurrente', async (req: Request, res: Response, next: Next
     }
 
     const colegioId = checkoutData.metadata.colegioId;
+    const tipo = checkoutData.metadata.tipo;
+
+    if (tipo === 'suscripcion') {
+      const plan = checkoutData.metadata.plan;
+      const estadoData = String((event as any).data?.status || '').toLowerCase();
+      const inactivo = /fail|cancel|refund|unpaid|past_due/i.test(String(eventType)) ||
+        ['failed', 'cancelled', 'canceled', 'unpaid', 'past_due'].includes(estadoData);
+      const activo = /succeed|complete|paid|active|created|updated|renew/i.test(String(eventType)) ||
+        ['paid', 'succeeded', 'completed', 'active'].includes(estadoData);
+
+      if (colegioId && activo && !inactivo) {
+        await prisma.colegio.update({
+          where: { id: colegioId },
+          data: {
+            estado: 'ACTIVE',
+            trialEndsAt: null,
+            ...(plan ? { plan: plan as any } : {}),
+          },
+        });
+      } else if (colegioId && inactivo) {
+        await prisma.colegio.update({
+          where: { id: colegioId },
+          data: { estado: /cancel|refund/i.test(String(eventType)) ? 'CANCELLED' : 'PAST_DUE' },
+        });
+      }
+      res.json({ received: true, status: 'suscripcion' });
+      return;
+    }
+
     const alumnoId = checkoutData.metadata.alumnoId;
     const mes = checkoutData.metadata.mes;
 

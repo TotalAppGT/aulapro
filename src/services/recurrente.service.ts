@@ -67,6 +67,58 @@ export async function createCheckout(params: CreateCheckoutParams): Promise<{ ch
   };
 }
 
+export interface SubscriptionCheckoutParams {
+  colegioId: string;
+  plan: string;
+  monto: number;
+  nombreColegio: string;
+  successUrl: string;
+  cancelUrl: string;
+}
+
+export async function createSubscriptionCheckout(
+  params: SubscriptionCheckoutParams,
+): Promise<{ checkoutId: string; checkoutUrl: string }> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'X-SECRET-KEY': RECURRENTE_SECRET_KEY,
+  };
+
+  const body = {
+    items: [
+      {
+        name: `AulaPro ${params.plan} - ${params.nombreColegio}`,
+        amount_in_cents: Math.round(params.monto * 100),
+        quantity: 1,
+      },
+    ],
+    metadata: {
+      tipo: 'suscripcion',
+      colegioId: params.colegioId,
+      plan: params.plan,
+    },
+    success_url: params.successUrl,
+    cancel_url: params.cancelUrl,
+  };
+
+  const response = await fetch(`${RECURRENTE_BASE_URL}/checkouts`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`Recurrente suscripcion checkout failed: ${response.status} ${errorBody}`);
+  }
+
+  const data: any = await response.json();
+  return {
+    checkoutId: data.id,
+    checkoutUrl: data.checkout_url || data.url,
+  };
+}
+
 export async function getCheckout(checkoutId: string): Promise<any> {
   const response = await fetch(`${RECURRENTE_BASE_URL}/checkouts/${checkoutId}`, {
     method: 'GET',

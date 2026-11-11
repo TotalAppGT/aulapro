@@ -7,8 +7,10 @@ import { generateReference } from '../lib/utils';
 import { authMiddleware } from '../middleware/auth';
 import { tenantMiddleware } from '../middleware/tenant';
 import { requireRole } from '../lib/roles';
-import { createCheckout } from '../services/recurrente.service';
+import { createCheckout, createSubscriptionCheckout } from '../services/recurrente.service';
 import { sendPaymentReminder } from '../services/whatsapp.service';
+import { planDe } from '../lib/planes';
+import { APP_URL } from '../config';
 
 export const pagoRoutes = Router();
 
@@ -165,6 +167,34 @@ pagoRoutes.post(
         res.status(400).json({ error: 'Datos invÃ¡lidos', details: err.errors });
         return;
       }
+      next(err);
+    }
+  }
+);
+
+pagoRoutes.post(
+  '/suscripcion/checkout',
+  requireRole('ADMIN_COLEGIO'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const colegioId = req.user!.colegioId;
+      const plan = String(req.body?.plan || '').toUpperCase();
+      if (!['STARTER', 'PRO', 'BUSINESS'].includes(plan)) {
+        res.status(400).json({ error: 'Plan invalido' });
+        return;
+      }
+      const colegio = await prisma.colegio.findUnique({ where: { id: colegioId }, select: { nombre: true } });
+      const precio = planDe(plan).precio;
+      const { checkoutUrl, checkoutId } = await createSubscriptionCheckout({
+        colegioId,
+        plan,
+        monto: precio,
+        nombreColegio: colegio?.nombre || 'Colegio',
+        successUrl: `${APP_URL}/app/configuracion?checkout=success`,
+        cancelUrl: `${APP_URL}/app/configuracion?checkout=canceled`,
+      });
+      res.json({ checkout_url: checkoutUrl, checkout_id: checkoutId, plan, monto: precio });
+    } catch (err) {
       next(err);
     }
   }

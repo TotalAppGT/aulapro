@@ -24,6 +24,7 @@ import {
   School,
   Bell,
   FileBarChart,
+  CreditCard,
   QrCode,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -48,6 +49,7 @@ const adminNav: NavItemDef[] = [
   { to: "/app/notificaciones", label: "Notificaciones", icon: Bell },
   { to: "/app/usuarios", label: "Usuarios", icon: UserCircle },
   { to: "/app/reportes", label: "Reportes", icon: FileBarChart },
+  { to: "/app/planes", label: "Plan y Facturacion", icon: CreditCard },
   { to: "/app/configuracion", label: "Configuracion", icon: Settings },
 ]
 
@@ -272,3 +274,4 @@ export default function DashboardLayout() {
     </div>
   )
 }
+

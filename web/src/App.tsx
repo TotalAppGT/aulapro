@@ -17,6 +17,7 @@ import AsistenciaPage from "@/pages/admin/asistencia.page"
 import AsistenciaScanPage from "@/pages/admin/asistencia-scan.page"
 import AnunciosPage from "@/pages/admin/anuncios.page"
 import ConfiguracionPage from "@/pages/admin/configuracion.page"
+import PlanesPage from "@/pages/admin/planes.page"
 import ReportesPage from "@/pages/admin/reportes.page"
 import NotificacionesPage from "@/pages/admin/notificaciones.page"
 import UsuariosPage from "@/pages/admin/usuarios.page"
@@ -162,6 +163,14 @@ export default function App() {
           element={
             <RoleRoute allowed={["ADMIN_COLEGIO"]}>
               <ConfiguracionPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="planes"
+          element={
+            <RoleRoute allowed={["ADMIN_COLEGIO"]}>
+              <PlanesPage />
             </RoleRoute>
           }
         />

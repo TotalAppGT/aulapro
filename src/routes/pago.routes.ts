@@ -9,7 +9,7 @@ import { tenantMiddleware } from '../middleware/tenant';
 import { requireRole } from '../lib/roles';
 import { createCheckout, createSubscriptionCheckout } from '../services/recurrente.service';
 import { sendPaymentReminder } from '../services/whatsapp.service';
-import { planDe } from '../lib/planes';
+import { planDe, precioAnual, buscarCupon } from '../lib/planes';
 import { APP_URL } from '../config';
 
 export const pagoRoutes = Router();
@@ -183,17 +183,51 @@ pagoRoutes.post(
         res.status(400).json({ error: 'Plan invalido' });
         return;
       }
+      const ciclo = String(req.body?.ciclo || 'mensual').toLowerCase() === 'anual' ? 'anual' : 'mensual';
+      const cupon = buscarCupon(String(req.body?.cupon || ''));
+      if (req.body?.cupon && !cupon) {
+        res.status(400).json({ error: 'Cupon invalido o expirado' });
+        return;
+      }
+
+      if (cupon?.tipo === 'trial') {
+        const planTrial = cupon.planTrial && ['STARTER', 'PRO', 'BUSINESS'].includes(cupon.planTrial) ? cupon.planTrial : plan;
+        const dias = cupon.dias || 30;
+        const trialEndsAt = new Date(Date.now() + dias * 24 * 60 * 60 * 1000);
+        await prisma.colegio.update({
+          where: { id: colegioId },
+          data: { plan: planTrial as any, estado: 'TRIAL', trialEndsAt },
+        });
+        res.json({ trial_activado: true, plan: planTrial, dias, trialEndsAt, cupon: cupon.codigo });
+        return;
+      }
+
+      const precioBase = ciclo === 'anual' ? precioAnual(plan) : planDe(plan).precio;
+      const descuento = cupon?.tipo === 'porcentaje' ? Math.round(precioBase * (cupon.valor / 100)) : 0;
+      const monto = Math.max(0, precioBase - descuento);
+
       const colegio = await prisma.colegio.findUnique({ where: { id: colegioId }, select: { nombre: true } });
-      const precio = planDe(plan).precio;
       const { checkoutUrl, checkoutId } = await createSubscriptionCheckout({
         colegioId,
         plan,
-        monto: precio,
+        monto,
         nombreColegio: colegio?.nombre || 'Colegio',
-        successUrl: `${APP_URL}/app/configuracion?checkout=success`,
-        cancelUrl: `${APP_URL}/app/configuracion?checkout=canceled`,
+        successUrl: `${APP_URL}/app/planes?checkout=success`,
+        cancelUrl: `${APP_URL}/app/planes?checkout=canceled`,
+        ciclo,
+        cupon: cupon?.codigo || null,
+        descuento,
       });
-      res.json({ checkout_url: checkoutUrl, checkout_id: checkoutId, plan, monto: precio });
+      res.json({
+        checkout_url: checkoutUrl,
+        checkout_id: checkoutId,
+        plan,
+        ciclo,
+        precio_base: precioBase,
+        descuento,
+        monto,
+        cupon: cupon?.codigo || null,
+      });
     } catch (err) {
       next(err);
     }

@@ -74,6 +74,9 @@ export interface SubscriptionCheckoutParams {
   nombreColegio: string;
   successUrl: string;
   cancelUrl: string;
+  ciclo?: string;
+  cupon?: string | null;
+  descuento?: number;
 }
 
 export async function createSubscriptionCheckout(
@@ -84,10 +87,11 @@ export async function createSubscriptionCheckout(
     'X-SECRET-KEY': RECURRENTE_SECRET_KEY,
   };
 
+  const ciclo = params.ciclo === 'anual' ? 'anual' : 'mensual';
   const body = {
     items: [
       {
-        name: `AulaPro ${params.plan} - ${params.nombreColegio}`,
+        name: `AulaPro ${params.plan} (${ciclo}) - ${params.nombreColegio}`,
         amount_in_cents: Math.round(params.monto * 100),
         quantity: 1,
       },
@@ -96,6 +100,9 @@ export async function createSubscriptionCheckout(
       tipo: 'suscripcion',
       colegioId: params.colegioId,
       plan: params.plan,
+      ciclo,
+      ...(params.cupon ? { cupon: params.cupon } : {}),
+      ...(params.descuento ? { descuento: String(params.descuento) } : {}),
     },
     success_url: params.successUrl,
     cancel_url: params.cancelUrl,
